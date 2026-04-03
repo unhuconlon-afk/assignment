@@ -3,11 +3,15 @@
 #include <limits>
 #include <string>
 #include <vector>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 
 
 using namespace std;
 
-// === ANSI COLOR CODES FOR CONSOLE BEAUTIFICATION ===
+// === ĐỊNH NGHĨA MÃ MÀU ANSI ĐỂ LÀM ĐẸP CONSOLE (2.0đ) ===
 #define RESET "\033[0m"
 #define RED "\033[31m"
 #define GREEN "\033[32m"
@@ -15,244 +19,246 @@ using namespace std;
 #define CYAN "\033[36m"
 #define BOLD "\033[1m"
 
-// Utility function to clear the input buffer
+// Hàm tiện ích để xóa bộ nhớ đệm
 void clearBuffer() {
   cin.clear();
   cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
 // ==========================================================
-// 1. BASE CLASS: Document (Abstract Class)
+// 1. LỚP CƠ SỞ: TaiLieu (Abstract Class)
 // ==========================================================
-class Document {
+class TaiLieu {
 private:
-  string documentId;
-  string title;
-  string publisher;
-  int publishYear;
+  string maTaiLieu;
+  string tenTaiLieu;
+  string nhaXuatBan;
+  int namXuatBan;
 
 public:
-  // Constructor
-  Document() : documentId(""), title(""), publisher(""), publishYear(0) {}
-  Document(string id, string t, string pub, int year)
-      : documentId(id), title(t), publisher(pub), publishYear(year) {}
-  virtual ~Document() {}
+  // Hàm khởi tạo (Constructor)
+  TaiLieu() : maTaiLieu(""), tenTaiLieu(""), nhaXuatBan(""), namXuatBan(0) {}
+  TaiLieu(string ma, string ten, string nxb, int nam)
+      : maTaiLieu(ma), tenTaiLieu(ten), nhaXuatBan(nxb), namXuatBan(nam) {}
+  virtual ~TaiLieu() {}
 
-  // Full Getter / Setter
-  string getDocumentId() const { return documentId; }
-  void setDocumentId(string id) { documentId = id; }
+  // Getter / Setter đầy đủ (2.0đ)
+  string getMaTaiLieu() const { return maTaiLieu; }
+  void setMaTaiLieu(string ma) { maTaiLieu = ma; }
 
-  string getTitle() const { return title; }
-  void setTitle(string t) { title = t; }
+  string getTenTaiLieu() const { return tenTaiLieu; }
+  void setTenTaiLieu(string ten) { tenTaiLieu = ten; }
 
-  string getPublisher() const { return publisher; }
-  void setPublisher(string pub) { publisher = pub; }
+  string getNhaXuatBan() const { return nhaXuatBan; }
+  void setNhaXuatBan(string nxb) { nhaXuatBan = nxb; }
 
-  int getPublishYear() const { return publishYear; }
-  void setPublishYear(int year) { publishYear = year; }
+  int getNamXuatBan() const { return namXuatBan; }
+  void setNamXuatBan(int nam) { namXuatBan = nam; }
 
-  // Virtual method for Polymorphism
-  virtual void Input(istream &is) {
-    cout << "Enter document ID: ";
-    is >> documentId;
+  // Phương thức ảo để Đa hình (3.0đ)
+  virtual void Nhap(istream &is) {
+    cout << "Nhập mã tài liệu: ";
+    is >> maTaiLieu;
     clearBuffer();
-    cout << "Enter title: ";
-    getline(is, title);
-    cout << "Enter publisher: ";
-    getline(is, publisher);
-    cout << "Enter publish year: ";
-    is >> publishYear;
+    cout << "Nhập tên tài liệu: ";
+    getline(is, tenTaiLieu);
+    cout << "Nhập nhà xuất bản: ";
+    getline(is, nhaXuatBan);
+    cout << "Nhập năm xuất bản: ";
+    is >> namXuatBan;
   }
 
-  virtual void DisplayInfo(ostream &os) const {
-    os << left << setw(10) << documentId << setw(25) << title << setw(20)
-       << publisher << setw(10) << publishYear;
+  virtual void HienThiThongTin(ostream &os) const {
+    os << left << setw(10) << maTaiLieu << setw(25) << tenTaiLieu << setw(20)
+       << nhaXuatBan << setw(10) << namXuatBan;
   }
 
-  // Pure virtual method: Forces child classes to define price calculation
-  virtual double CalculatePrice() const = 0;
+  // Phương thức thuần ảo: Bắt buộc lớp con phải định nghĩa công thức tính tiền
+  virtual double TinhTien() const = 0;
 
-  // Overloading input/output operators combined with Polymorphism
-  friend istream &operator>>(istream &is, Document &doc) {
-    doc.Input(is);
+  // Quá tải toán tử nhập xuất (2.0đ) kết hợp với Đa hình
+  friend istream &operator>>(istream &is, TaiLieu &tl) {
+    tl.Nhap(is);
     return is;
   }
-  friend ostream &operator<<(ostream &os, const Document &doc) {
-    doc.DisplayInfo(os);
+  friend ostream &operator<<(ostream &os, const TaiLieu &tl) {
+    tl.HienThiThongTin(os);
     return os;
   }
 };
 
 // ==========================================================
-// 2. INHERITED CLASSES: Book, Magazine, Newspaper
+// 2. LỚP KẾ THỪA: Sach, TapChi, Bao (3.0đ)
 // ==========================================================
 
-class Book : public Document {
+class Sach : public TaiLieu {
 private:
-  int pageCount;
-  string author;
+  int soTrang;
+  string tacGia;
 
 public:
-  Book() : Document(), pageCount(0), author("") {}
+  Sach() : TaiLieu(), soTrang(0), tacGia("") {}
 
-  // Override Input method
-  void Input(istream &is) override {
-    Document::Input(is);
-    cout << "Enter page count: ";
-    is >> pageCount;
+  // Ghi đè phương thức Nhập
+  void Nhap(istream &is) override {
+    TaiLieu::Nhap(is);
+    cout << "Nhập số trang: ";
+    is >> soTrang;
     clearBuffer();
-    cout << "Enter author: ";
-    getline(is, author);
+    cout << "Nhập tác giả: ";
+    getline(is, tacGia);
   }
 
-  // Override Display method (Use iomanip for column alignment)
-  void DisplayInfo(ostream &os) const override {
-    Document::DisplayInfo(os);
-    os << left << setw(15) << "Book" << setw(20) << author << setw(15)
-       << (to_string(pageCount) + " pages") << YELLOW << CalculatePrice() << RESET
+  // Ghi đè phương thức Hiện thị (Sử dụng iomanip để gióng cột thẳng hàng)
+  void HienThiThongTin(ostream &os) const override {
+    TaiLieu::HienThiThongTin(os);
+    os << left << setw(15) << "Sách" << setw(20) << tacGia << setw(15)
+       << (to_string(soTrang) + " trang") << YELLOW << TinhTien() << RESET
        << endl;
   }
 
-  // Specific price formula: Book = Page count * 500 VND
-  double CalculatePrice() const override { return pageCount * 500.0; }
+  // Công thức tính tiền riêng: Sách = Số trang * 500 VNĐ
+  double TinhTien() const override { return soTrang * 500.0; }
 };
 
-class Magazine : public Document {
+class TapChi : public TaiLieu {
 private:
-  int issueNumber;
-  int releaseMonth;
+  int soPhatHanh;
+  int thangPhatHanh;
 
 public:
-  Magazine() : Document(), issueNumber(0), releaseMonth(0) {}
+  TapChi() : TaiLieu(), soPhatHanh(0), thangPhatHanh(0) {}
 
-  void Input(istream &is) override {
-    Document::Input(is);
-    cout << "Enter issue number: ";
-    is >> issueNumber;
-    cout << "Enter release month (1-12): ";
-    is >> releaseMonth;
+  void Nhap(istream &is) override {
+    TaiLieu::Nhap(is);
+    cout << "Nhập số phát hành: ";
+    is >> soPhatHanh;
+    cout << "Nhập tháng phát hành (1-12): ";
+    is >> thangPhatHanh;
   }
 
-  void DisplayInfo(ostream &os) const override {
-    Document::DisplayInfo(os);
-    string extraInfo =
-        "Issue: " + to_string(issueNumber) + ", M" + to_string(releaseMonth);
-    os << left << setw(15) << "Magazine" << setw(20) << "N/A" << setw(15)
-       << extraInfo << YELLOW << CalculatePrice() << RESET << endl;
+  void HienThiThongTin(ostream &os) const override {
+    TaiLieu::HienThiThongTin(os);
+    string thongTinRieng =
+        "Số: " + to_string(soPhatHanh) + ", T" + to_string(thangPhatHanh);
+    os << left << setw(15) << "Tạp chí" << setw(20) << "N/A" << setw(15)
+       << thongTinRieng << YELLOW << TinhTien() << RESET << endl;
   }
 
-  // Specific price formula: Magazine = Fixed price 25000 VND
-  double CalculatePrice() const override { return 25000.0; }
+  // Công thức tính tiền riêng: Tạp chí = Giá cố định 25000 VNĐ
+  double TinhTien() const override { return 25000.0; }
 };
 
-class Newspaper : public Document {
+class Bao : public TaiLieu {
 private:
-  int releaseDate;
+  int ngayPhatHanh;
 
 public:
-  Newspaper() : Document(), releaseDate(0) {}
+  Bao() : TaiLieu(), ngayPhatHanh(0) {}
 
-  void Input(istream &is) override {
-    Document::Input(is);
-    cout << "Enter release date (1-31): ";
-    is >> releaseDate;
+  void Nhap(istream &is) override {
+    TaiLieu::Nhap(is);
+    cout << "Nhập ngày phát hành (1-31): ";
+    is >> ngayPhatHanh;
   }
 
-  void DisplayInfo(ostream &os) const override {
-    Document::DisplayInfo(os);
-    string extraInfo = "Date: " + to_string(releaseDate);
-    os << left << setw(15) << "Newspaper" << setw(20) << "N/A" << setw(15)
-       << extraInfo << YELLOW << CalculatePrice() << RESET << endl;
+  void HienThiThongTin(ostream &os) const override {
+    TaiLieu::HienThiThongTin(os);
+    string thongTinRieng = "Ngày: " + to_string(ngayPhatHanh);
+    os << left << setw(15) << "Báo" << setw(20) << "N/A" << setw(15)
+       << thongTinRieng << YELLOW << TinhTien() << RESET << endl;
   }
 
-  // Specific price formula: Newspaper = Fixed price 5000 VND
-  double CalculatePrice() const override { return 5000.0; }
+  // Công thức tính tiền riêng: Báo = Giá cố định 5000 VNĐ
+  double TinhTien() const override { return 5000.0; }
 };
 
 // ==========================================================
-// 3. MAIN PROGRAM
+// 3. CHƯƠNG TRÌNH CHÍNH
 // ==========================================================
-void PrintTableHeader() {
+void InTieuDeBang() {
   cout << string(125, '-') << endl;
-  cout << BOLD << CYAN << left << setw(10) << "Doc ID" << setw(25)
-       << "Title" << setw(20) << "Publisher" << setw(10) << "Year"
-       << setw(15) << "Category" << setw(20) << "Author" << setw(15)
-       << "Details"
-       << "Price" << RESET << endl;
+  cout << BOLD << CYAN << left << setw(10) << "Mã TL" << setw(25)
+       << "Tên Tài Liệu" << setw(20) << "Nhà Xuất Bản" << setw(10) << "Năm XB"
+       << setw(15) << "Phân Loại" << setw(20) << "Tác Giả" << setw(15)
+       << "Chi Tiết"
+       << "Giá Tiền" << RESET << endl;
   cout << string(125, '-') << endl;
 }
 
 int main() {
-  // Use Vector of base class pointers to demonstrate Polymorphism
-  vector<Document *> documentList;
-  int choice;
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+  // Sử dụng Vector chứa con trỏ lớp cơ sở để thể hiện Đa hình
+  vector<TaiLieu *> danhSachTaiLieu;
+  int luaChon;
 
   do {
     cout << "\n"
-         << BOLD << GREEN << "=== LIBRARY MANAGEMENT SYSTEM ===" << RESET
+         << BOLD << GREEN << "=== HỆ THỐNG QUẢN LÝ THƯ VIỆN ===" << RESET
          << "\n";
-    cout << "1. Add Book\n";
-    cout << "2. Add Magazine\n";
-    cout << "3. Add Newspaper\n";
-    cout << "4. Display List and Calculate Price\n";
-    cout << "0. Exit\n";
-    cout << "Enter your choice: ";
-    cin >> choice;
+    cout << "1. Thêm Sách\n";
+    cout << "2. Thêm Tạp Chí\n";
+    cout << "3. Thêm Báo\n";
+    cout << "4. Hiển thị danh sách và Tính tiền\n";
+    cout << "0. Thoát\n";
+    cout << "Nhập lựa chọn của bạn: ";
+    cin >> luaChon;
 
-    Document *newDoc = nullptr;
+    TaiLieu *tlMoi = nullptr;
 
-    switch (choice) {
+    switch (luaChon) {
     case 1:
-      cout << CYAN << "\n--- Enter Book details ---" << RESET << endl;
-      newDoc = new Book();
+      cout << CYAN << "\n--- Nhập thông tin Sách ---" << RESET << endl;
+      tlMoi = new Sach();
       break;
     case 2:
-      cout << CYAN << "\n--- Enter Magazine details ---" << RESET << endl;
-      newDoc = new Magazine();
+      cout << CYAN << "\n--- Nhập thông tin Tạp chí ---" << RESET << endl;
+      tlMoi = new TapChi();
       break;
     case 3:
-      cout << CYAN << "\n--- Enter Newspaper details ---" << RESET << endl;
-      newDoc = new Newspaper();
+      cout << CYAN << "\n--- Nhập thông tin Báo ---" << RESET << endl;
+      tlMoi = new Bao();
       break;
     case 4:
-      if (documentList.empty()) {
-        cout << RED << "List is empty!" << RESET << endl;
+      if (danhSachTaiLieu.empty()) {
+        cout << RED << "Danh sách trống!" << RESET << endl;
       } else {
-        cout << "\n" << BOLD << GREEN << "DOCUMENT LIST" << RESET << "\n";
-        PrintTableHeader();
-        double totalPrice = 0;
-        for (const auto &doc : documentList) {
-          // Call output operator (<<), automatically triggering Polymorphism
-          cout << *doc;
-          totalPrice += doc->CalculatePrice();
+        cout << "\n" << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
+        InTieuDeBang();
+        double tongTien = 0;
+        for (const auto &tl : danhSachTaiLieu) {
+          // Gọi toán tử xuất (<<), tự động kích hoạt Đa hình
+          cout << *tl;
+          tongTien += tl->TinhTien();
         }
         cout << string(125, '-') << endl;
-        cout << BOLD << RED << "TOTAL PRICE OF ALL DOCUMENTS: " << fixed
-             << setprecision(0) << totalPrice << " VND" << RESET << endl;
+        cout << BOLD << RED << "TỔNG TIỀN TẤT CẢ TÀI LIỆU: " << fixed
+             << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
       }
       break;
     case 0:
-      cout << "Exiting program...\n";
+      cout << "Đang thoát chương trình...\n";
       break;
     default:
-      cout << RED << "Invalid choice. Please try again!\n" << RESET;
+      cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET;
       clearBuffer();
     }
 
-    // If successfully created, call input operator (>>) triggering Polymorphism
-    if (newDoc != nullptr) {
-      cin >> *newDoc;
-      documentList.push_back(newDoc);
-      cout << GREEN << "Document added successfully!\n" << RESET;
+    // Nếu tạo mới thành công, gọi toán tử nhập (>>) kích hoạt Đa hình
+    if (tlMoi != nullptr) {
+      cin >> *tlMoi;
+      danhSachTaiLieu.push_back(tlMoi);
+      cout << GREEN << "Thêm tài liệu thành công!\n" << RESET;
     }
 
-  } while (choice != 0);
+  } while (luaChon != 0);
 
-  // Free memory (Mandatory rule when using pointers)
-  for (auto doc : documentList) {
-    delete doc;
+  // Giải phóng bộ nhớ (Quy tắc bắt buộc khi dùng con trỏ)
+  for (auto tl : danhSachTaiLieu) {
+    delete tl;
   }
-  documentList.clear();
+  danhSachTaiLieu.clear();
 
   return 0;
 }
