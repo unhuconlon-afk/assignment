@@ -8,7 +8,6 @@
 #endif
 #include <windows.h>
 
-
 using namespace std;
 
 // === ĐỊNH NGHĨA MÃ MÀU ANSI ĐỂ LÀM ĐẸP CONSOLE (2.0đ) ===
