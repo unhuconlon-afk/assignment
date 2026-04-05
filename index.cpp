@@ -97,6 +97,14 @@ private:
 
 public:
   Sach() : TaiLieu(), soTrang(0), tacGia("") {}
+  Sach(string ma, string ten, string nxb, int nam, int st, string tg)
+      : TaiLieu(ma, ten, nxb, nam), soTrang(st), tacGia(tg) {}
+
+  int getSoTrang() const { return soTrang; }
+  void setSoTrang(int st) { soTrang = st; }
+
+  string getTacGia() const { return tacGia; }
+  void setTacGia(string tg) { tacGia = tg; }
 
   // Ghi đè phương thức Nhập
   void Nhap(istream &is) override {
@@ -111,9 +119,9 @@ public:
   // Ghi đè phương thức Hiện thị (Sử dụng iomanip để gióng cột thẳng hàng)
   void HienThiThongTin(ostream &os) const override {
     TaiLieu::HienThiThongTin(os);
-    os << left << setw(15) << "Sách" << setw(20) << tacGia << setw(15)
-       << (to_string(soTrang) + " trang") << YELLOW << TinhTien() << RESET
-       << endl;
+    os << left << setw(11 + sizeof("Sách") - 1) << "Sách" << setw(20) << tacGia
+       << setw(15) << (to_string(soTrang) + " trang") << YELLOW << setw(15)
+       << TinhTien() << RESET << endl;
   }
 
   // Công thức tính tiền riêng: Sách = Số trang * 500 VNĐ
@@ -127,21 +135,41 @@ private:
 
 public:
   TapChi() : TaiLieu(), soPhatHanh(0), thangPhatHanh(0) {}
+  TapChi(string ma, string ten, string nxb, int nam, int sph, int tph)
+      : TaiLieu(ma, ten, nxb, nam), soPhatHanh(sph), thangPhatHanh(tph) {}
+
+  int getSoPhatHanh() const { return soPhatHanh; }
+  void setSoPhatHanh(int sph) { soPhatHanh = sph; }
+
+  int getThangPhatHanh() const { return thangPhatHanh; }
+  void setThangPhatHanh(int tph) { thangPhatHanh = tph; }
 
   void Nhap(istream &is) override {
     TaiLieu::Nhap(is);
     cout << "Nhập số phát hành: ";
     is >> soPhatHanh;
-    cout << "Nhập tháng phát hành (1-12): ";
-    is >> thangPhatHanh;
+    do {
+      if (is.fail()) {
+        is.clear();
+        is.ignore(numeric_limits<streamsize>::max(), '\n');
+      }
+      cout << "Nhập tháng phát hành (1-12): ";
+      is >> thangPhatHanh;
+      if (is.fail() || thangPhatHanh < 1 || thangPhatHanh > 12) {
+        cout << RED
+             << "Lỗi: Tháng phát hành phải từ 1 đến 12. Vui lòng nhập lại!"
+             << RESET << endl;
+      }
+    } while (is.fail() || thangPhatHanh < 1 || thangPhatHanh > 12);
   }
 
   void HienThiThongTin(ostream &os) const override {
     TaiLieu::HienThiThongTin(os);
     string thongTinRieng =
         "Số: " + to_string(soPhatHanh) + ", T" + to_string(thangPhatHanh);
-    os << left << setw(15) << "Tạp chí" << setw(20) << "N/A" << setw(15)
-       << thongTinRieng << YELLOW << TinhTien() << RESET << endl;
+    os << left << setw(8 + sizeof("Tạp chí") - 1) << "Tạp chí" << setw(20)
+       << "N/A" << setw(11 + sizeof("Số: ") - 1) << thongTinRieng << YELLOW
+       << setw(15) << TinhTien() << RESET << endl;
   }
 
   // Công thức tính tiền riêng: Tạp chí = Giá cố định 25000 VNĐ
@@ -154,18 +182,35 @@ private:
 
 public:
   Bao() : TaiLieu(), ngayPhatHanh(0) {}
+  Bao(string ma, string ten, string nxb, int nam, int nph)
+      : TaiLieu(ma, ten, nxb, nam), ngayPhatHanh(nph) {}
+
+  int getNgayPhatHanh() const { return ngayPhatHanh; }
+  void setNgayPhatHanh(int nph) { ngayPhatHanh = nph; }
 
   void Nhap(istream &is) override {
     TaiLieu::Nhap(is);
-    cout << "Nhập ngày phát hành (1-31): ";
-    is >> ngayPhatHanh;
+    do {
+      if (is.fail()) {
+        is.clear();
+        is.ignore(numeric_limits<streamsize>::max(), '\n');
+      }
+      cout << "Nhập ngày phát hành (1-31): ";
+      is >> ngayPhatHanh;
+      if (is.fail() || ngayPhatHanh < 1 || ngayPhatHanh > 31) {
+        cout << RED
+             << "Lỗi: Ngày phát hành phải từ 1 đến 31. Vui lòng nhập lại!"
+             << RESET << endl;
+      }
+    } while (is.fail() || ngayPhatHanh < 1 || ngayPhatHanh > 31);
   }
 
   void HienThiThongTin(ostream &os) const override {
     TaiLieu::HienThiThongTin(os);
     string thongTinRieng = "Ngày: " + to_string(ngayPhatHanh);
-    os << left << setw(15) << "Báo" << setw(20) << "N/A" << setw(15)
-       << thongTinRieng << YELLOW << TinhTien() << RESET << endl;
+    os << left << setw(12 + sizeof("Báo") - 1) << "Báo" << setw(20) << "N/A"
+       << setw(9 + sizeof("Ngày: ") - 1) << thongTinRieng << YELLOW << setw(15)
+       << TinhTien() << RESET << endl;
   }
 
   // Công thức tính tiền riêng: Báo = Giá cố định 5000 VNĐ
@@ -176,13 +221,16 @@ public:
 // 3. CHƯƠNG TRÌNH CHÍNH
 // ==========================================================
 void InTieuDeBang() {
-  cout << string(125, '-') << endl;
-  cout << BOLD << CYAN << left << setw(10) << "Mã TL" << setw(25)
-       << "Tên Tài Liệu" << setw(20) << "Nhà Xuất Bản" << setw(10) << "Năm XB"
-       << setw(15) << "Phân Loại" << setw(20) << "Tác Giả" << setw(15)
-       << "Chi Tiết"
-       << "Giá Tiền" << RESET << endl;
-  cout << string(125, '-') << endl;
+  cout << string(130, '-') << endl;
+  cout << BOLD << CYAN << left << setw(5 + sizeof("Mã TL") - 1) << "Mã TL"
+       << setw(13 + sizeof("Tên Tài Liệu") - 1) << "Tên Tài Liệu"
+       << setw(8 + sizeof("Nhà Xuất Bản") - 1) << "Nhà Xuất Bản"
+       << setw(4 + sizeof("Năm XB") - 1) << "Năm XB"
+       << setw(6 + sizeof("Phân Loại") - 1) << "Phân Loại"
+       << setw(13 + sizeof("Tác Giả") - 1) << "Tác Giả"
+       << setw(7 + sizeof("Chi Tiết") - 1) << "Chi Tiết"
+       << setw(7 + sizeof("Giá Tiền") - 1) << "Giá Tiền" << RESET << endl;
+  cout << string(130, '-') << endl;
 }
 
 int main() {
@@ -208,15 +256,15 @@ int main() {
 
     switch (luaChon) {
     case 1:
-      cout << CYAN << "\n--- Nhập thông tin Sách ---" << RESET << endl;
+      cout << CYAN << "\nNhập thông tin Sách" << RESET << endl;
       tlMoi = new Sach();
       break;
     case 2:
-      cout << CYAN << "\n--- Nhập thông tin Tạp chí ---" << RESET << endl;
+      cout << CYAN << "\nNhập thông tin Tạp chí" << RESET << endl;
       tlMoi = new TapChi();
       break;
     case 3:
-      cout << CYAN << "\n--- Nhập thông tin Báo ---" << RESET << endl;
+      cout << CYAN << "\nNhập thông tin Báo" << RESET << endl;
       tlMoi = new Bao();
       break;
     case 4:
@@ -231,7 +279,7 @@ int main() {
           cout << *tl;
           tongTien += tl->TinhTien();
         }
-        cout << string(125, '-') << endl;
+        cout << string(130, '-') << endl;
         cout << BOLD << RED << "TỔNG TIỀN TẤT CẢ TÀI LIỆU: " << fixed
              << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
       }
