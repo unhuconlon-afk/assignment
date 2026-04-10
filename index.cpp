@@ -783,6 +783,81 @@ int main() {
           cout << string(155, '-') << endl;
           cout << BOLD << RED << "TỔNG TIỀN TẤT CẢ TÀI LIỆU: " << fixed
                << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
+        } break;
+        case 5:{
+          if(danhSachTaiLieu.empty()){
+            cout<<RED<<"Danh sách trống"<<RESET<<endl;
+          }
+          string MaCanXoa;
+          cout<<"Nhập mã tài liệu cần xóa: ";
+          cin>>MaCanXoa;
+          clearBuffer();
+
+          vector<int> ViTriXoa;
+          for(int i=0;i< (int)danhSachTaiLieu.size();i++){
+            if(danhSachTaiLieu[i]->getMaTaiLieu()==MaCanXoa){
+              ViTriXoa.push_back(i);
+            }
+          }
+          if(ViTriXoa.empty()){
+            cout<<RED<<"Không tìm thấy mã tài liệu\""<<MaCanXoa<<"\"!"<<RESET<<endl;
+            break;
+          }
+          int index;
+          cout<<"\n"<<BOLD<<GREEN<<"TÀI LIỆU CÓ MÃ \""<<MaCanXoa<<"\""<<RESET<<"\n";
+          InTieuDeBang();
+          if(ViTriXoa.size()==1){
+            index=ViTriXoa[0];
+            cout<<left<<setw(5)<<"1. ";
+            danhSachTaiLieu[index]->HienThiThongTin(cout);
+          }else{
+            for(int i=0;i<(int)ViTriXoa.size();i++){
+              cout<<left<<setw(5)<<to_string(i+1)+". ";
+              danhSachTaiLieu[ViTriXoa[i]]->HienThiThongTin(cout);
+              cout<<endl;
+            }
+            cout<<string(155,'-')<<endl;
+            int LuaChonXoa;
+            bool hople=false;
+            while(!hople){
+              cout<<"Nhập số thứ tự tài liệu muốn xóa (1-"<<ViTriXoa.size()<<"): ";
+              cin>>LuaChonXoa;
+              if(cin.fail()||LuaChonXoa <1 || LuaChonXoa>(int)ViTriXoa.size()){
+                cin.clear();
+                clearBuffer();
+                cout<<RED<<"Lựa chọn không hợp lệ. Vui lòng nhập lại!"<<RESET<<endl;
+              }
+              else{
+                clearBuffer();
+                hople=true;
+              }
+              }
+              index=ViTriXoa[LuaChonXoa-1];
+              cout<<GREEN<<"Tài liệu được chọn: "<<RESET<<endl;
+              InTieuDeBang();
+              danhSachTaiLieu[index]->HienThiThongTin(cout);
+              cout<<endl;
+            }
+            cout<<string(155,'-')<<endl;
+            char XacNhan;
+            cout<<BOLD<<RED<<"Bạn có chắc chắn muốn xóa tài liệu này? (Y/N): "<<RESET;
+            cin>>XacNhan;
+            clearBuffer();
+            if(XacNhan=='Y'||XacNhan=='y'){
+              delete danhSachTaiLieu[index];
+              danhSachTaiLieu.erase(danhSachTaiLieu.begin()+index);
+              LuuDuLieu(danhSachTaiLieu);
+              cout<<GREEN<<"Xóa tài liệu thành công!"<<RESET<<endl;
+              break;
+          }
+          else if(XacNhan=='N'||XacNhan=='n'){
+            cout<<YELLOW<<"Hủy xóa tài liệu."<<RESET<<endl;
+            break;
+          }
+          else{
+            cout<<RED<<"Lựa chọn không hợp lệ. Hủy xóa tài liệu."<<RESET<<endl;
+
+          }
         }
         break;
       case 0:
