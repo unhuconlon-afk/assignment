@@ -740,6 +740,7 @@ int main() {
       cout << "2. Thêm Tạp Chí\n";
       cout << "3. Thêm Báo\n";
       cout << "4. Hiển thị danh sách và Tính tiền\n";
+      cout << "5. Xóa tài liệu\n";
       cout << "0. Thoát và Đăng xuất\n";
     } else { // Reader menu
       cout << "1. Tìm kiếm tài liệu\n";
