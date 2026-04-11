@@ -796,15 +796,16 @@ int main() {
             break;
           }
           string MaCanXoa;
+          clearBuffer(); // Dọn bộ nhớ trước khi lấy mã tài liệu cần xóa để tránh bị nhảy do cặn Enter
           while(true){  // Vòng lặp để đảm bảo người dùng nhập mã tài liệu cần xóa không được để trống
           cout<<"Nhập mã tài liệu cần xóa: ";   
-          cin>>MaCanXoa;
-          clearBuffer(); // Dọn bộ nhớ sau khi nhập mã để tránh lỗi khi sử dụng getline sau này
+          getline(cin,MaCanXoa); // Sử dụng getline để cho phép mã tài liệu có khoảng trắng nếu cần
           if(!MaCanXoa.empty()){   // Nếu mã không trống thì thoát vòng lặp, tiếp tục xử lý xóa
             break;
-          }
+          }else{
           cout<<RED<<"Không có mã tài liệu nào.Vui lòng nhập lại!"<<RESET<<endl; // Nếu mã trống thì cảnh báo và yêu cầu nhập lại
         }
+    }
           vector<int> ViTriXoa; // Tạo một vector để lưu trữ các vị trí của tài liệu có mã trùng với mã cần xóa
           for(int i=0;i< (int)danhSachTaiLieu.size();i++){  // Duyệt qua danh sách tài liệu để tìm kiếm các tài liệu có mã trùng với mã cần xóa
             if(danhSachTaiLieu[i]->getMaTaiLieu()==MaCanXoa){  // Nếu tìm thấy tài liệu có mã trùng thì lưu vị trí của nó vào vector ViTriXoa
@@ -869,7 +870,7 @@ int main() {
             break;
           }
           else{
-            cout<<RED<<"Lựa chọn không hợp lệ. Hủy xóa tài liệu."<<RESET<<endl;
+            cout<<RED<<"Lựa chọn không hợp lệ.Vui lòng nhập lại!"<<RESET<<endl;
 
           }
         } 
