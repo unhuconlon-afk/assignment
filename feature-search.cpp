@@ -626,46 +626,51 @@ string toLowerCase(string s) {
 // Hàm tìm kiếm tài liệu theo MÃ (Search by ID)
 void timKiemTheoMa(const vector<TaiLieu*>& ds) {
 
-    string maCanTim; // Biến lưu mã người dùng nhập
+    string maCanTim;  // Biến lưu mã tài liệu người dùng nhập
 
     cout << "Nhập mã tài liệu cần tìm: ";
-    cin >> maCanTim; // Nhập mã tài liệu từ bàn phím
 
-    bool timThay = false; // kiểm tra có tìm thấy hay không
+    cin.ignore();
+    getline(cin, maCanTim);
+    // Nhập cả dòng (có thể chứa khoảng trắng nếu cần)
 
-    // Duyệt toàn bộ danh sách tài liệu
+    bool timThay = false;
+    // kiểm tra có tìm thấy tài liệu hay không
+
     for (const auto& tl : ds) {
+        // Duyệt từng tài liệu trong danh sách
 
-        // Kiểm tra con trỏ hợp lệ và so sánh mã
+        // So sánh CHÍNH XÁC:
+        // - Phân biệt hoa thường (S01 khác s01)
+        // - Không cho phép tìm một phần (phải nhập đúng 100%)
         if (tl != nullptr && tl->getMaTaiLieu() == maCanTim) {
 
-            // Nếu đây là kết quả đầu tiên tìm thấy
             if (!timThay) {
+                // Nếu đây là kết quả đầu tiên tìm được
+
                 cout << "\n"
                     << BOLD << GREEN << "KẾT QUẢ TÌM KIẾM THEO MÃ" << RESET << "\n";
 
                 InTieuDeBang(); // In tiêu đề bảng
-
                 timThay = true; // Đánh dấu đã tìm thấy
             }
 
-            // In thông tin tài liệu (đa hình: tự động đúng loại Sách/Báo/Tạp chí)
             tl->HienThiThongTin(cout);
+            // Gọi hàm đa hình để hiển thị thông tin tài liệu
         }
     }
 
-    // Nếu sau khi duyệt mà không tìm thấy
     if (!timThay) {
+        // Nếu không tìm thấy tài liệu nào
         cout << RED
             << "Không tìm thấy tài liệu có mã: " << maCanTim
             << RESET << endl;
     }
     else {
-        // In dòng kẻ kết thúc bảng nếu có kết quả
+        // Nếu có kết quả thì in dòng kẻ cuối bảng
         cout << string(155, '-') << endl;
     }
 }
-
 
 // Hàm hỗ trợ Reader: Mượn tài liệu
 void muonTaiLieu(vector<TaiLieu*>& ds, User* currentUser) {
@@ -761,8 +766,11 @@ int main() {
             cout << "2. Thêm Tạp Chí\n";
             cout << "3. Thêm Báo\n";
             cout << "4. Hiển thị danh sách và Tính tiền\n";
+            cout << "5. Tìm kiếm theo mã\n";
             cout << "0. Thoát và Đăng xuất\n";
+
         }
+
         else { // Reader menu
             cout << "1. Tìm kiếm tài liệu\n";
             cout << "2. Mượn tài liệu\n";
@@ -816,7 +824,6 @@ int main() {
                 break;
             case 5:
                 timKiemTheoMa(danhSachTaiLieu); // Gọi hàm tìm kiếm theo mã
-                cout << "5. Tìm kiếm theo mã\n";
                 break;
             case 0:
                 cout << "Đang đăng xuất...\n";
