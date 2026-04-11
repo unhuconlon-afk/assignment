@@ -1,9 +1,13 @@
 // Nạp các thư viện chuẩn cần thiết cho chương trình
+#include <fstream> // Thư viện dùng để đọc/ghi file dữ liệu
 #include <iomanip> // Cung cấp các thao tác định dạng căn trích như setw (cột) và left (căn trái)
 #include <iostream> // Cung cấp các luồng nhập/xuất chuẩn như cin, cout
 #include <limits> // Cung cấp giới hạn kiểu số, dùng hữu ích khi kết hợp thao tác xóa bộ nhớ đệm
-#include <string> // Cung cấp kiểu dữ liệu chuỗi kí tự dạng std::string
+#include <sstream> // Thư viện dùng để xử lý cắt chuỗi (parsing) dữ liệu từ file
+#include <string>  // Cung cấp kiểu dữ liệu chuỗi kí tự dạng std::string
 #include <vector> // Cung cấp cấu trúc mảng động std::vector nhằm quản lý danh sách tài liệu linh hoạt
+#include <algorithm> // Thư viện chứa std::transform
+#include <cctype> // Thư viện chứa ::tolower
 #ifndef NOMINMAX
 #define NOMINMAX // Định nghĩa rào chắn để tránh xung đột hàm min/max khi gọi
                  // windows.h
@@ -25,13 +29,98 @@ using namespace std;
 
 // Hàm tiện ích để làm sạch bộ nhớ đệm, dùng để chống trôi lệnh khi xen kẽ giữa
 // getline() và cin >>
-void clearBuffer(istream& is = cin) {
-    is.clear(); // Hủy cờ lỗi trên luồng nhập khi người dùng lỡ nhập sai kiểu dữ
+void clearBuffer() {
+    cin.clear(); // Hủy cờ lỗi trên luồng nhập khi người dùng lỡ nhập sai kiểu dữ
     // liệu chữ vào số
-    is.ignore(
+    cin.ignore(
         numeric_limits<streamsize>::max(),
         '\n'); // Loại bỏ tất cả ký tự tồn đọng bao gồm cả ký tự Enter ('\n')
 }
+
+// ==========================================================
+// 0. LỚP NGƯỜI DÙNG: User vả Xác Thực (Authentication)
+// ==========================================================
+
+class User {
+private:
+    string username;
+    string password;
+    string role;
+
+public:
+    User(string uname, string pwd, string r)
+        : username(uname), password(pwd), role(r) {
+    }
+    virtual ~User() {}
+
+    string getUsername() const { return username; }
+    string getPassword() const { return password; }
+    string getRole() const { return role; }
+};
+
+class Librarian : public User {
+public:
+    Librarian(string uname, string pwd) : User(uname, pwd, "Librarian") {}
+};
+
+class Reader : public User {
+public:
+    Reader(string uname, string pwd) : User(uname, pwd, "Reader") {}
+};
+
+class AuthManager {
+public:
+    static void taoFileChuan() {
+        ifstream ifs("users.txt");
+        if (!ifs.is_open()) {
+            ofstream ofs("users.txt");
+            ofs << "admin|admin123|Librarian\n";
+            ofs << "john|john123|Reader\n";
+            ofs.close();
+            cout << GREEN
+                << "(!) Đã khởi tạo file users.txt với tài khoản mặc định "
+                "(admin/john)."
+                << RESET << "\n";
+        }
+    }
+
+    static User* login() {
+        taoFileChuan();
+        string reqUser, reqPwd;
+        while (true) {
+            cout << "\n"
+                << BOLD << CYAN << "=== ĐĂNG NHẬP HỆ THỐNG ===" << RESET << "\n";
+            cout << "Tài khoản (Nhập '0' để thoát): ";
+            cin >> reqUser;
+            if (reqUser == "0")
+                return nullptr;
+            cout << "Mật khẩu: ";
+            cin >> reqPwd;
+
+            ifstream ifs("users.txt");
+            string line;
+            bool found = false;
+            while (getline(ifs, line)) {
+                stringstream ss(line);
+                string uname, pwd, role;
+                getline(ss, uname, '|');
+                getline(ss, pwd, '|');
+                getline(ss, role, '|');
+
+                if (uname == reqUser && pwd == reqPwd) {
+                    cout << GREEN << "\nĐăng nhập thành công! Vai trò: " << role << RESET
+                        << "\n";
+                    if (role == "Librarian")
+                        return new Librarian(uname, pwd);
+                    else
+                        return new Reader(uname, pwd);
+                }
+            }
+            cout << RED << "Tài khoản hoặc mật khẩu không chính xác. Thử lại!"
+                << RESET << "\n";
+        }
+    }
+};
 
 // ==========================================================
 // 1. LỚP CƠ SỞ: TaiLieu (Abstract Class - Được coi là Lớp Trừu Tượng)
@@ -45,14 +134,22 @@ private:
     string nhaXuatBan;
     int namXuatBan;
 
+protected:
+    bool isBorrowed;
+    string borrowerName;
+
 public:
     // Hàm Constructor (Khởi tạo) không tham số thiết lập giá trị chuẩn an toàn
     // lúc rỗng
-    TaiLieu() : maTaiLieu(""), tenTaiLieu(""), nhaXuatBan(""), namXuatBan(0) {}
+    TaiLieu()
+        : maTaiLieu(""), tenTaiLieu(""), nhaXuatBan(""), namXuatBan(0),
+        isBorrowed(false), borrowerName("") {
+    }
 
     // Hàm Constructor có nhận các tham số dùng để khởi gán đối tượng lập tức
     TaiLieu(string ma, string ten, string nxb, int nam)
-        : maTaiLieu(ma), tenTaiLieu(ten), nhaXuatBan(nxb), namXuatBan(nam) {
+        : maTaiLieu(ma), tenTaiLieu(ten), nhaXuatBan(nxb), namXuatBan(nam),
+        isBorrowed(false), borrowerName("") {
     }
 
     // Hàm Destructor ảo đảm bảo máy tính xóa đúng bộ nhớ rác khi đối tượng dẫn
@@ -73,12 +170,18 @@ public:
     int getNamXuatBan() const { return namXuatBan; }
     void setNamXuatBan(int nam) { namXuatBan = nam; }
 
-    // Phương thức Đa hình thuần ảo (pure virtual) để xử lý bước nhập từng dữ liệu gốc
+    bool getIsBorrowed() const { return isBorrowed; }
+    void setIsBorrowed(bool status) { isBorrowed = status; }
+
+    string getBorrowerName() const { return borrowerName; }
+    void setBorrowerName(string name) { borrowerName = name; }
+
+    // Phương thức Đa hình (ảo hóa - virtual) để xử lý bước nhập từng dữ liệu gốc
     // riêng Có thể được ghi đè bởi các lớp Sách/Báo nhờ cơ chế liên kết trễ (Late
     // binding) - (3.0đ)
-    virtual void Nhap(istream& is) = 0;
+    virtual void Nhap(istream& is, const vector<TaiLieu*>& danhSach) = 0;
 
-    // Khai báo hàm thuần ảo hiển thị chuỗi nội dung với việc đẩy cột thẳng hàng
+    // Khai báo hàm ảo hiển thị chuỗi nội dung với việc đẩy cột thẳng hàng
     virtual void HienThiThongTin(ostream& os) const = 0;
 
     // Phương thức thuần ảo ép lớp nhận kế thừa bắt buộc phải viết lại
@@ -86,28 +189,35 @@ public:
     // định
     virtual double TinhTien() const = 0;
 
-    // Quá tải luồng lấy dữ liệu tạo một thao tác nhập gọn qua cin >>
-    friend istream& operator>>(istream& is, TaiLieu& tl) {
-        tl.Nhap(is); // Cầu nối lấy gọi hàm đa hình, sẽ móc nối hàm nhập chuẩn tuỳ
-        // loại object
-        return is;
-    }
-
-    // Quá tải luồng đổ dữ liệu tạo một thao tác xuất gọn qua cout <<
-    friend ostream& operator<<(ostream& os, const TaiLieu& tl) {
-        tl.HienThiThongTin(
-            os); // Cầu nối xuất lấy đúng nội dung đính kèm các đặc điểm riêng rẽ
-        return os;
-    }
+    // Phương thức ảo để lưu dữ liệu vào stream (phục vụ lưu file)
+    virtual void Luu(ostream& os) const = 0;
 };
 
-// Cài đặt phần thân chung cho các hàm thuần ảo của lớp TaiLieu
-// Các lớp con vẫn có thể gọi hàm này thông qua phạm vi TaiLieu::
-inline void TaiLieu::Nhap(istream& is) {
-    cout << "Nhập mã tài liệu: ";
-    is >> maTaiLieu; // Nhập dữ liệu mã với từ duy nhất không có khoảng cách
-    clearBuffer(is); // Phải dọn bộ nhớ ngay sau đó để chuẩn bị lấy getline có
-    // đoạn trống
+// Cung cấp định nghĩa cho các hàm thuần ảo để các lớp con có thể tái sử dụng
+// logic nhập gốc
+inline void TaiLieu::Nhap(istream& is, const vector<TaiLieu*>& danhSach) {
+    // Giải thuật kiểm tra mã tài liệu duy nhất
+    while (true) {
+        cout << "Nhập mã tài liệu: ";
+        is >> maTaiLieu;
+        bool biTrùng = false;
+        for (const auto& tl : danhSach) {
+            if (tl != nullptr && tl->getMaTaiLieu() == maTaiLieu) {
+                biTrùng = true;
+                break;
+            }
+        }
+        if (biTrùng) {
+            cout << RED << "Lỗi: Mã tài liệu '" << maTaiLieu
+                << "' đã tồn tại! Vui lòng nhập mã khác." << RESET << endl;
+        }
+        else {
+            break;
+        }
+    }
+
+    clearBuffer(); // Phải dọn bộ nhớ ngay sau đó để chuẩn bị lấy getline có đoạn
+    // trống
 
     cout << "Nhập tên tài liệu: ";
     getline(is, tenTaiLieu); // Đọc trọn cả dòng kể cả khoảng trắng xen kẽ
@@ -115,27 +225,49 @@ inline void TaiLieu::Nhap(istream& is) {
     cout << "Nhập nhà xuất bản: ";
     getline(is, nhaXuatBan);
 
-    cout << "Nhập năm xuất bản: ";
-    while (!(is >> namXuatBan)) {
-        cout << RED
-            << "Lỗi: Năm xuất bản phải là số. Vui lòng nhập lại: " << RESET;
-        clearBuffer(is);
+    // Thuật toán kiểm soát lỗi nhập số cho Năm Xuất Bản
+    do {
+        if (is.fail()) {
+            is.clear();
+            is.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
+        cout << "Nhập năm xuất bản: ";
+        is >> namXuatBan;
+        if (is.fail() || namXuatBan < 0) {
+            cout << RED << "Lỗi: Năm xuất bản không hợp lệ. Vui lòng nhập lại!"
+                << RESET << endl;
+        }
+    } while (is.fail() || namXuatBan < 0);
+}
+
+// Cung cấp định nghĩa hiển thị gốc của đối tượng trừu tượng
+inline void TaiLieu::HienThiThongTin(ostream& os) const {
+    // Ép in về phía trái của cột, với cỡ chiều rộng setw cố định cho từng loại
+    // thông tin
+    os << left << setw(10) << maTaiLieu << setw(25) << tenTaiLieu << setw(20)
+        << nhaXuatBan << setw(10) << namXuatBan;
+
+    // Định dạng lại cột "Tình Trạng" (25 visual columns) bằng thuật toán bù byte
+    if (isBorrowed) {
+        os << setw(15 + sizeof("Mượn bởi: ") - 1) << ("Mượn bởi: " + borrowerName);
+    }
+    else {
+        os << setw(17 + sizeof("Sẵn sàng") - 1) << "Sẵn sàng";
     }
 }
 
-inline void TaiLieu::HienThiThongTin(ostream& os) const {
-    // Ép in về phía trái của cột, với cỡ chiều rộng setw cố định cho từng
-    // loại thông tin
-    os << left << setw(10) << maTaiLieu << setw(25) << tenTaiLieu << setw(20)
-        << nhaXuatBan << setw(10) << namXuatBan;
-};
+// Định nghĩa phần lưu cơ sở cho các thuộc tính chung
+inline void TaiLieu::Luu(ostream& os) const {
+    os << maTaiLieu << "|" << tenTaiLieu << "|" << nhaXuatBan << "|" << namXuatBan
+        << "|" << isBorrowed << "|" << borrowerName;
+}
 
 // ==========================================================
-// 2. LỚP KẾ THỪA: Đối tượng Sách, Tạp chí, và Báo (Phần Đa Hình 3.0đ)
+// 2. LỚP KẾ THỪA: Đối tượng Sách, Tạp chí, và Báo (Phần Đa Hình)
 // ==========================================================
 
-class Sach : public TaiLieu { // Khởi xướng Kế Thừa tính năng gốc từ lớp cha
-    // lớp 'TaiLieu'
+class Sach : public TaiLieu { // Khởi xướng Kế Thừa tính năng gốc từ lớp cha lớp
+    // 'TaiLieu'
 private:
     // Khai báo bổ sung đặc thù chỉ cho một cuốn Sách
     int soTrang;
@@ -160,15 +292,25 @@ public:
     void setTacGia(string tg) { tacGia = tg; }
 
     // Ghi đè hàm Nhập() của Lớp TaiLieu để lấy thêm Tác giả và Số trang
-    void Nhap(istream& is) override {
-        TaiLieu::Nhap(is); // Ra lệnh gọi phần Nhập của lớp cơ sở giải quyết 4
-        // thông số nền đè trước
-        cout << "Nhập số trang: ";
-        while (!(is >> soTrang)) {
-            cout << RED << "Lỗi: Phải nhập số. Vui lòng nhập lại: " << RESET;
-            clearBuffer(is);
-        }
-        clearBuffer(is); // Đề phòng lệnh getline phía sau bị nhảy do cặn Enter
+    void Nhap(istream& is, const vector<TaiLieu*>& danhSach) override {
+        TaiLieu::Nhap(is, danhSach); // Ra lệnh gọi phần Nhập của lớp cơ sở giải
+        // quyết 4 thông số nền đè trước
+// Thuật toán kiểm soát lỗi nhập số cho Số Trang
+        do {
+            if (is.fail()) {
+                is.clear();
+                is.ignore(numeric_limits<streamsize>::max(), '\n');
+            }
+            cout << "Nhập số trang: ";
+            is >> soTrang;
+            if (is.fail() || soTrang <= 0) {
+                cout << RED
+                    << "Lỗi: Số trang phải là số nguyên dương. Vui lòng nhập lại!"
+                    << RESET << endl;
+            }
+        } while (is.fail() || soTrang <= 0);
+
+        clearBuffer(); // Đề phòng lệnh getline phía sau bị nhảy do cặn Enter
         cout << "Nhập tác giả: ";
         getline(is, tacGia); // Lấy tên tác giả (cho phép khoảng cách)
     }
@@ -177,8 +319,8 @@ public:
     // UTF-8 hoạt động chuẩn)
     void HienThiThongTin(ostream& os) const override {
         TaiLieu::HienThiThongTin(os); // In 4 trường mặc định gốc trước
-        // Căn trái và đẩy các trường thêm: Phân Loại (Sách), Tác Giả, Số Trang,
-        // và Tinh Tiền đi kèm định dạng màu
+        // Căn trái và đẩy các trường thêm: Phân Loại (Sách), Tác Giả, Số Trang, và
+        // Tinh Tiền đi kèm định dạng màu
         os << left << setw(11 + sizeof("Sách") - 1) << "Sách" << setw(20) << tacGia
             << setw(15) << (to_string(soTrang) + " trang") << YELLOW << setw(15)
             << TinhTien() << RESET << endl;
@@ -188,6 +330,26 @@ public:
     double TinhTien() const override {
         return soTrang * 500.0;
     } // Đồng giá 500đ nhân với lượng trang
+
+    // Ghi đè phương thức lưu cho Sách (Type 1)
+    void Luu(ostream& os) const override {
+        os << "1|";
+        TaiLieu::Luu(os);
+        os << "|" << soTrang << "|" << tacGia << endl;
+    }
+
+    // Toán tử quá tải nhập/xuất riêng cho lớp Sách (khớp với sơ đồ UML)
+    friend istream& operator>>(istream& is, Sach& s) {
+        // Lưu ý: operator>> không có truy cập vào danhSach để check duy nhất,
+        // nên khuyến khích dùng Nhap(is, danhSach) trực tiếp.
+        s.Nhap(is, vector<TaiLieu*>());
+        return is;
+    }
+
+    friend ostream& operator<<(ostream& os, Sach& s) {
+        s.HienThiThongTin(os);
+        return os;
+    }
 };
 
 class TapChi : public TaiLieu { // Gốc tạo đối tượng loại biên bản mới 'TapChi'
@@ -210,19 +372,27 @@ public:
 
     // Kịch bản Nhập thêm đối với loại Tạp Chí yêu cầu rà soát giá trị tháng (từ
     // 1-12)
-    void Nhap(istream& is) override {
-        TaiLieu::Nhap(is); // Điền thông số chuẩn gốc cho Tạp Chí
-        cout << "Nhập số phát hành: ";
-        while (!(is >> soPhatHanh)) {
-            cout << RED << "Lỗi: Phải nhập số. Vui lòng nhập lại: " << RESET;
-            clearBuffer(is);
-        }
-
-        // Khởi tạo khoá cản ngoại lệ kiểm soát các trị số nhập hợp lệ theo tháng
-        // (1 đến 12)
+    void Nhap(istream& is, const vector<TaiLieu*>& danhSach) override {
+        TaiLieu::Nhap(is, danhSach); // Điền thông số chuẩn gốc cho Tạp Chí
+        // Thuật toán kiểm soát lỗi cho Số Phát Hành
         do {
-            if (is.fail()) { // Bắt lỗi gõ luồng (Vd: nhập chữ vào int) để tránh
-                // vòng lặp chết
+            if (is.fail()) {
+                is.clear();
+                is.ignore(numeric_limits<streamsize>::max(), '\n');
+            }
+            cout << "Nhập số phát hành: ";
+            is >> soPhatHanh;
+            if (is.fail() || soPhatHanh < 0) {
+                cout << RED << "Lỗi: Số phát hành không hợp lệ. Vui lòng nhập lại!"
+                    << RESET << endl;
+            }
+        } while (is.fail() || soPhatHanh < 0);
+
+        // Khởi tạo khoá cản ngoại lệ kiểm soát các trị số nhập hợp lệ theo tháng (1
+        // đến 12)
+        do {
+            if (is.fail()) { // Bắt lỗi gõ luồng (Vd: nhập chữ vào int) để tránh vòng
+                // lặp chết
                 is.clear();
                 is.ignore(numeric_limits<streamsize>::max(), '\n');
             }
@@ -254,6 +424,24 @@ public:
 
     // Xếp giá bán quy chế Tạp chí theo hằng số 25,000 VNĐ một bản không đổi
     double TinhTien() const override { return 25000.0; }
+
+    // Ghi đè phương thức lưu cho Tạp chí (Type 2)
+    void Luu(ostream& os) const override {
+        os << "2|";
+        TaiLieu::Luu(os);
+        os << "|" << soPhatHanh << "|" << thangPhatHanh << endl;
+    }
+
+    // Toán tử quá tải nhập/xuất riêng cho lớp Tạp chí (khớp với sơ đồ UML)
+    friend istream& operator>>(istream& is, TapChi& tc) {
+        tc.Nhap(is, vector<TaiLieu*>());
+        return is;
+    }
+
+    friend ostream& operator<<(ostream& os, TapChi& tc) {
+        tc.HienThiThongTin(os);
+        return os;
+    }
 };
 
 class Bao : public TaiLieu { // Gốc tạo đối tượng báo chí phát hành với thời hạn
@@ -271,8 +459,8 @@ public:
 
     // Xông chức năng Nhập của Báo đảm bảo thu hẹp mốc đầu vào của ngày trong
     // thang 1..31
-    void Nhap(istream& is) override {
-        TaiLieu::Nhap(is); // Điền thông số chuẩn cho Báo
+    void Nhap(istream& is, const vector<TaiLieu*>& danhSach) override {
+        TaiLieu::Nhap(is, danhSach); // Điền thông số chuẩn cho Báo
 
         // Tự động yêu cầu nhập đi lặp lại ngày cho tới khi thu được khung số quy
         // chuẩn hợp lệ
@@ -306,6 +494,24 @@ public:
 
     // Tái cấu trúc giá trị tiền tệ của một quyển Báo lấy 5,000 VNĐ cố định
     double TinhTien() const override { return 5000.0; }
+
+    // Ghi đè phương thức lưu cho Báo (Type 3)
+    void Luu(ostream& os) const override {
+        os << "3|";
+        TaiLieu::Luu(os);
+        os << "|" << ngayPhatHanh << endl;
+    }
+
+    // Toán tử quá tải nhập/xuất riêng cho lớp Báo (khớp với sơ đồ UML)
+    friend istream& operator>>(istream& is, Bao& b) {
+        b.Nhap(is, vector<TaiLieu*>());
+        return is;
+    }
+
+    friend ostream& operator<<(ostream& os, Bao& b) {
+        b.HienThiThongTin(os);
+        return os;
+    }
 };
 
 // ==========================================================
@@ -315,19 +521,210 @@ public:
 // Hàm vẽ khung đỉnh và đề mục bảng hiển thị danh sách chi tiết (xử lý byte bù
 // trừ cho UTF-8 an toàn)
 void InTieuDeBang() {
-    cout << string(130, '-')
-        << endl; // Đổ ra một dải đường ngang biên giới trên độ dài 130 ký hiệu
+    cout << string(155, '-')
+        << endl; // Đổ ra một dải đường ngang biên giới trên độ dài 155 ký hiệu
     cout << BOLD << CYAN << left << setw(5 + sizeof("Mã TL") - 1) << "Mã TL"
         << setw(13 + sizeof("Tên Tài Liệu") - 1) << "Tên Tài Liệu"
         << setw(8 + sizeof("Nhà Xuất Bản") - 1) << "Nhà Xuất Bản"
         << setw(4 + sizeof("Năm XB") - 1) << "Năm XB"
+        << setw(15 + sizeof("Tình Trạng") - 1) << "Tình Trạng"
         << setw(6 + sizeof("Phân Loại") - 1) << "Phân Loại"
         << setw(13 + sizeof("Tác Giả") - 1) << "Tác Giả"
         << setw(7 + sizeof("Chi Tiết") - 1) << "Chi Tiết"
         << setw(7 + sizeof("Giá Tiền") - 1) << "Giá Tiền" << RESET
         << endl; // Chèn mã kết thúc làm màu về mặc định
-    cout << string(130, '-')
+    cout << string(155, '-')
         << endl; // Đổ đường viền phân tách các hàng thông tin số liệu chính yếu
+}
+
+// === CÁC HÀM XỬ LÝ FILE (Persistence) ===
+
+// Hàm thực hiện ghi toàn bộ danh sách hiện có vào file data.txt
+void LuuDuLieu(const vector<TaiLieu*>& ds) {
+    ofstream ofs("data.txt");
+    if (ofs.is_open()) {
+        for (const auto& tl : ds) {
+            if (tl != nullptr) {
+                tl->Luu(ofs);
+            }
+        }
+        ofs.close();
+    }
+}
+
+// Hàm thực hiện nạp dữ liệu từ file khi khởi động chương trình
+void LoadDuLieu(vector<TaiLieu*>& ds) {
+    ifstream ifs("data.txt");
+    if (!ifs.is_open())
+        return; // Nếu chưa có file thì bỏ qua
+
+    string line;
+    while (getline(ifs, line)) {
+        if (line.empty())
+            continue;
+        stringstream ss(line);
+        string typeStr, ma, ten, nxb, namStr, borrowStr, borrower;
+
+        // Cắt chuỗi dựa trên ký tự gạch đứng |
+        getline(ss, typeStr, '|');
+        getline(ss, ma, '|');
+        getline(ss, ten, '|');
+        getline(ss, nxb, '|');
+        getline(ss, namStr, '|');
+        getline(ss, borrowStr, '|');
+        getline(ss, borrower, '|');
+
+        if (typeStr.empty())
+            continue;
+
+        try {
+            int type = stoi(typeStr);
+
+            TaiLieu* newItem = nullptr;
+
+            if (type == 1) { // Sách
+                string stStr, tacGia;
+                getline(ss, stStr, '|');
+                getline(ss, tacGia, '|');
+                newItem = new Sach(ma, ten, nxb, stoi(namStr), stoi(stStr), tacGia);
+            }
+            else if (type == 2) { // Tạp chí
+                string sphStr, tphStr;
+                getline(ss, sphStr, '|');
+                getline(ss, tphStr, '|');
+                newItem =
+                    new TapChi(ma, ten, nxb, stoi(namStr), stoi(sphStr), stoi(tphStr));
+            }
+            else if (type == 3) { // Báo
+                string nphStr;
+                getline(ss, nphStr, '|');
+                newItem = new Bao(ma, ten, nxb, stoi(namStr), stoi(nphStr));
+            }
+
+            if (newItem != nullptr) {
+                newItem->setIsBorrowed(borrowStr == "1");
+                newItem->setBorrowerName(borrower);
+                ds.push_back(newItem);
+            }
+        }
+        catch (...) {
+            // Bỏ qua dòng bị lỗi định dạng số liệu từ data.txt
+            continue;
+        }
+    }
+    ifs.close();
+}
+
+// ==== HÀM NGHIỆP VỤ (Borrowing Logic) ====
+
+// Hàm tiện ích chuyển sang chữ thường (Case-insensitive)
+string toLowerCase(string s) {
+    transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return tolower(c); });
+    return s;
+}
+
+// Hàm tìm kiếm tài liệu theo MÃ (Search by ID)
+void timKiemTheoMa(const vector<TaiLieu*>& ds) {
+
+    string maCanTim; // Biến lưu mã người dùng nhập
+
+    cout << "Nhập mã tài liệu cần tìm: ";
+    cin >> maCanTim; // Nhập mã tài liệu từ bàn phím
+
+    bool timThay = false; // kiểm tra có tìm thấy hay không
+
+    // Duyệt toàn bộ danh sách tài liệu
+    for (const auto& tl : ds) {
+
+        // Kiểm tra con trỏ hợp lệ và so sánh mã
+        if (tl != nullptr && tl->getMaTaiLieu() == maCanTim) {
+
+            // Nếu đây là kết quả đầu tiên tìm thấy
+            if (!timThay) {
+                cout << "\n"
+                    << BOLD << GREEN << "KẾT QUẢ TÌM KIẾM THEO MÃ" << RESET << "\n";
+
+                InTieuDeBang(); // In tiêu đề bảng
+
+                timThay = true; // Đánh dấu đã tìm thấy
+            }
+
+            // In thông tin tài liệu (đa hình: tự động đúng loại Sách/Báo/Tạp chí)
+            tl->HienThiThongTin(cout);
+        }
+    }
+
+    // Nếu sau khi duyệt mà không tìm thấy
+    if (!timThay) {
+        cout << RED
+            << "Không tìm thấy tài liệu có mã: " << maCanTim
+            << RESET << endl;
+    }
+    else {
+        // In dòng kẻ kết thúc bảng nếu có kết quả
+        cout << string(155, '-') << endl;
+    }
+}
+
+
+// Hàm hỗ trợ Reader: Mượn tài liệu
+void muonTaiLieu(vector<TaiLieu*>& ds, User* currentUser) {
+    if (currentUser->getRole() != "Reader") {
+        cout << RED << "Chỉ Reader mới có quyền mượn tài liệu!" << RESET << "\n";
+        return;
+    }
+    string ma;
+    cout << "Nhập mã tài liệu muốn mượn: ";
+    cin >> ma;
+
+    for (auto& tl : ds) {
+        if (tl != nullptr && tl->getMaTaiLieu() == ma) {
+            if (tl->getIsBorrowed()) {
+                cout << RED << "Tài liệu này đã được mượn bởi " << tl->getBorrowerName()
+                    << "!" << RESET << "\n";
+            }
+            else {
+                tl->setIsBorrowed(true);
+                tl->setBorrowerName(currentUser->getUsername());
+                LuuDuLieu(ds); // Lưu trạng thái
+                cout << GREEN << "Mượn tài liệu thành công!" << RESET << "\n";
+            }
+            return;
+        }
+    }
+    cout << RED << "Không tìm thấy mã tài liệu!" << RESET << "\n";
+}
+
+// Hàm hỗ trợ Reader: Trả tài liệu
+void traTaiLieu(vector<TaiLieu*>& ds, User* currentUser) {
+    if (currentUser->getRole() != "Reader") {
+        cout << RED << "Chỉ Reader mới có quyền trả tài liệu!" << RESET << "\n";
+        return;
+    }
+    string ma;
+    cout << "Nhập mã tài liệu muốn trả: ";
+    cin >> ma;
+
+    for (auto& tl : ds) {
+        if (tl != nullptr && tl->getMaTaiLieu() == ma) {
+            if (!tl->getIsBorrowed()) {
+                cout << YELLOW << "Tài liệu này đang rảnh (chưa ai mượn)." << RESET
+                    << "\n";
+            }
+            else if (tl->getBorrowerName() != currentUser->getUsername()) {
+                cout << RED << "Bạn không thể trả tài liệu do người khác ("
+                    << tl->getBorrowerName() << ") mượn!" << RESET << "\n";
+            }
+            else {
+                tl->setIsBorrowed(false);
+                tl->setBorrowerName("");
+                LuuDuLieu(ds); // Lưu trạng thái
+                cout << GREEN << "Trả tài liệu thành công!" << RESET << "\n";
+            }
+            return;
+        }
+    }
+    cout << RED << "Không tìm thấy mã tài liệu!" << RESET << "\n";
 }
 
 int main() {
@@ -339,157 +736,150 @@ int main() {
     // Khởi tạo một mảng động (Vector) dùng con trỏ tĩnh làm mẫu chốt (nhảy bước
     // thiết lập mảng Đa Hình)
     vector<TaiLieu*> danhSachTaiLieu;
-    int luaChon; // Biến chọn lệnh kêt nối Menu điều hướng
 
-    // Thuật toán khối khởi động vòng Menu liên tục, lặp đến khi có hiệu lệnh
-    // Kết thúc
+    // Tự động nạp dữ liệu từ file đã lưu
+    LoadDuLieu(danhSachTaiLieu);
+
+    User* currentUser = AuthManager::login();
+    if (currentUser == nullptr) {
+        cout << "Đã hủy đăng nhập.\n";
+        return 0;
+    }
+
+    int luaChon;
+
     do {
-        // Biểu diễn phần tiêu đề và điều hướng người dùng
         cout << "\n"
             << BOLD << GREEN << "=== HỆ THỐNG QUẢN LÝ THƯ VIỆN ===" << RESET
             << "\n";
-        cout << "1. Thêm Sách\n";
-        cout << "2. Thêm Tạp Chí\n";
-        cout << "3. Thêm Báo\n";
-        cout << "4. Hiển thị danh sách và Tính tiền\n";
-        cout << "5. Tìm kiếm theo mã\n";
-        cout << "0. Thoát\n";
+        cout << CYAN << "Xin chào, " << currentUser->getUsername() << " ("
+            << currentUser->getRole() << ")\n"
+            << RESET;
+
+        if (currentUser->getRole() == "Librarian") {
+            cout << "1. Thêm Sách\n";
+            cout << "2. Thêm Tạp Chí\n";
+            cout << "3. Thêm Báo\n";
+            cout << "4. Hiển thị danh sách và Tính tiền\n";
+            cout << "0. Thoát và Đăng xuất\n";
+        }
+        else { // Reader menu
+            cout << "1. Tìm kiếm tài liệu\n";
+            cout << "2. Mượn tài liệu\n";
+            cout << "3. Trả tài liệu\n";
+            cout << "4. Xem danh sách tài liệu\n";
+            cout << "5. Tìm kiếm theo mã\n";
+            cout << "0. Thoát và Đăng xuất\n";
+        }
+
         cout << "Nhập lựa chọn của bạn: ";
         if (!(cin >> luaChon)) {
-            cin.clear();
-            luaChon = -1; // Ép vào default bắt lỗi nhập chữ
+            cout << RED << "Lỗi: Lựa chọn không hợp lệ!\n" << RESET;
+            clearBuffer();
+            luaChon = -1;
+            continue;
         }
 
-        TaiLieu* tlMoi = nullptr; // Chốt biến gốc con trỏ về rỗng giúp an toàn
-        // khi chọn lệch phím điều hướng
+        if (currentUser->getRole() == "Librarian") {
+            TaiLieu* tlMoi = nullptr;
 
-// Khối điều rẽ hướng điền chọn bằng thẻ (1 ra Sách, 2 ra Tạp chí...)
-        switch (luaChon) {
-        case 1:
-            cout << CYAN << "\nNhập thông tin Sách" << RESET << endl;
-            tlMoi = new Sach(); // Gọi vùng cấp phát bộ nhớ mới làm thuộc tinh là
-            // một đối tượng thuộc loại Sách
-            break;
-        case 2:
-            cout << CYAN << "\nNhập thông tin Tạp chí" << RESET << endl;
-            tlMoi = new TapChi(); // Cấp vùng nhớ thể hiện Tạp Chí
-            break;
-        case 3:
-            cout << CYAN << "\nNhập thông tin Báo" << RESET << endl;
-            tlMoi = new Bao(); // Cấp vùng thể hiện biên niên quyển Báo
-            break;
-        case 4:
-            // Phát thông điệp cản đường người dùng trong trường mảng còn hoàn toàn
-            // trống
-            if (danhSachTaiLieu.empty()) {
-                cout << RED << "Danh sách trống!" << RESET << endl;
-            }
-            else {
-                // Tái lập hiển thị toàn bộ nội dung nếu vector đang nắm giữ dữ liệu
-                // thành phần
-                cout << "\n" << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
-                InTieuDeBang(); // Xuất cụm header phía trên
-
-                double tongTien = 0; // Thẻ gom giá trị nhằm tính tổng cước ấn phẩm
-
-                // Quét lấy tất cả thiết đặt bản lưu trong Mảng (Chạy đa hình dựa vào
-                // Type thực chất)
-                for (const auto& tl : danhSachTaiLieu) {
-                    // Gọi thao tác đổ thẳng qua operator Toán tử (<<) đa hình để phân
-                    // rã ra Sách/Báo tự động
-                    cout << *tl;
-                    tongTien +=
-                        tl->TinhTien(); // Hút giá tiền của mảng để tổng hợp ngân quỹ
+            switch (luaChon) {
+            case 1:
+                cout << CYAN << "\nNhập thông tin Sách" << RESET << endl;
+                tlMoi = new Sach();
+                break;
+            case 2:
+                cout << CYAN << "\nNhập thông tin Tạp chí" << RESET << endl;
+                tlMoi = new TapChi();
+                break;
+            case 3:
+                cout << CYAN << "\nNhập thông tin Báo" << RESET << endl;
+                tlMoi = new Bao();
+                break;
+            case 4:
+                if (danhSachTaiLieu.empty()) {
+                    cout << RED << "Danh sách trống!" << RESET << endl;
                 }
-                cout << string(130, '-') << endl; // Kẻ vạch đóng cấu tạo bảng ấn phẩm
-
-                // Hiện thông báo tiền tệ kết toán với setprecision chặn không lộ dấu
-                // chấm trôi nổi (phân số thập phân)
-                cout << BOLD << RED << "TỔNG TIỀN TẤT CẢ TÀI LIỆU: " << fixed
-                    << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
-            }
-            break;
-        case 5: {
-            // Kiểm tra nếu danh sách tài liệu rỗng
-            if (danhSachTaiLieu.empty()) {
-                // In thông báo danh sách trống (màu đỏ)
-                cout << RED << "Danh sách trống!" << RESET << endl;
-                break; // Thoát khỏi case 5
-            }
-
-            string maCanTim; // Biến lưu mã tài liệu cần tìm
-
-            // Yêu cầu người dùng nhập mã tài liệu
-            cout << "Nhập mã tài liệu cần tìm: ";
-            cin >> maCanTim;
-
-            bool timThay = false; // Biến cờ để kiểm tra có tìm thấy hay không
-
-            // Duyệt qua toàn bộ danh sách tài liệu
-            for (const auto& tl : danhSachTaiLieu) {
-                // So sánh mã tài liệu hiện tại với mã cần tìm
-                if (tl->getMaTaiLieu() == maCanTim) {
-
-                    // Nếu đây là lần đầu tiên tìm thấy
-                    if (!timThay) {
-                        // In tiêu đề kết quả (chỉ in 1 lần)
-                        cout << "\n" << BOLD << GREEN << "KẾT QUẢ TÌM KIẾM" << RESET << "\n";
-
-                        // Gọi hàm in tiêu đề bảng
-                        InTieuDeBang();
+                else {
+                    cout << "\n"
+                        << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
+                    InTieuDeBang();
+                    double tongTien = 0;
+                    for (const auto& tl : danhSachTaiLieu) {
+                        tl->HienThiThongTin(cout);
+                        tongTien += tl->TinhTien();
                     }
-
-                    // In thông tin tài liệu (dùng toán tử << đã overload)
-                    cout << *tl;
-
-                    // Đánh dấu đã tìm thấy
-                    timThay = true;
+                    cout << string(155, '-') << endl;
+                    cout << BOLD << RED << "TỔNG TIỀN TẤT CẢ TÀI LIỆU: " << fixed
+                        << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
                 }
+                break;
+            case 5:
+                timKiemTheoMa(danhSachTaiLieu); // Gọi hàm tìm kiếm theo mã
+                cout << "5. Tìm kiếm theo mã\n";
+                break;
+            case 0:
+                cout << "Đang đăng xuất...\n";
+                break;
+            default:
+                cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET;
+                clearBuffer();
             }
 
-            // Sau khi duyệt xong, nếu không tìm thấy tài liệu nào
-            if (!timThay) {
-                // In thông báo không tìm thấy (màu đỏ)
-                cout << RED << "Không tìm thấy tài liệu có mã: "
-                    << maCanTim << RESET << endl;
+            if (tlMoi != nullptr) {
+                tlMoi->Nhap(cin, danhSachTaiLieu);
+                danhSachTaiLieu.push_back(tlMoi);
+                cout << GREEN << "Thêm tài liệu thành công!\n" << RESET;
+                LuuDuLieu(danhSachTaiLieu);
             }
-
-            break; 
+        }
+        else { // Handle Reader actions
+            switch (luaChon) {
+            case 1:
+                timKiemTheoMa(danhSachTaiLieu);
+                break;
+            case 2:
+                muonTaiLieu(danhSachTaiLieu, currentUser);
+                break;
+            case 3:
+                traTaiLieu(danhSachTaiLieu, currentUser);
+                break;
+            case 4:
+                if (danhSachTaiLieu.empty()) {
+                    cout << RED << "Danh sách trống!" << RESET << endl;
+                }
+                else {
+                    cout << "\n"
+                        << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
+                    InTieuDeBang();
+                    for (const auto& tl : danhSachTaiLieu) {
+                        tl->HienThiThongTin(cout);
+                    }
+                    cout << string(155, '-') << endl;
+                }
+                break;
+            case 0:
+                cout << "Đang đăng xuất...\n";
+                break;
+            default:
+                cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET;
+                clearBuffer();
+            }
         }
 
-        case 0:
-            cout << "Đang thoát chương trình...\n"; // Điểm báo dừng vòng quay
-            // console trước khi trả về
-            // System
-            break;
-        default:
-            // Cảnh báo mã phản hồi với thao tác gõ mã chữ/số ngoài phạm trù từ 0 -
-            // 4
-            cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET;
-            clearBuffer(); // Phải phá bộ nhớ lỗi chống rác dồn vòng lặp vô tận
-        }
+    } while (luaChon != 0);
 
-        // Thủ diễn khép luồng cho Mảng đẩy đối tượng thêm vào khi rẽ nhánh new
-        // Obj() không thất bại (NULL)
-        if (tlMoi != nullptr) {
-            cin >> *tlMoi; // Tiến hành lùi về phần (>> Nhập) tự nhận hệ số đa hình
-            // theo Object Sáng lập
-            danhSachTaiLieu.push_back(
-                tlMoi); // Chuỗi hàm chèn con tem con trỏ vào đáy giỏ Vector
-            cout << GREEN << "Thêm tài liệu thành công!\n" << RESET;
-        }
-
-    } while (luaChon != 0); // Neo khoá cản cho rẽ ngang ở Case 0 Exit
-
+    delete currentUser;
+    currentUser = nullptr;
     // Xóa bỏ phế thải và thu hồi lại vùng heap memory mà C++ mượn làm lớp qua
     // Vector trước khi tắt máy
     for (auto tl : danhSachTaiLieu) {
         delete tl; // Khóa gỡ hoàn toàn trỏ đang neo vào heap (khởi động gọi
         // Destructor)
+        tl = nullptr;
     }
     danhSachTaiLieu.clear(); // Gỡ toàn mặt xích khỏi hàng list để an toàn tuyệt
     // đối rò rỉ RAM
 
-    return 0; // Báo hiệu mã biên dịch Main trả về cho điều hành OS là thành
-    // công
+    return 0; // Báo hiệu mã biên dịch Main trả về cho điều hành OS là thành công
 }
