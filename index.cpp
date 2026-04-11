@@ -791,85 +791,88 @@ int main() {
                << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
         } break;
         case 5:{
-          if(danhSachTaiLieu.empty()){ // Kiểm tra nếu danh sách tài liệu trống trước khi yêu cầu nhập mã
+          // Kiểm tra danh sách tài liệu trống trước khi thực hiện xóa
+          if(danhSachTaiLieu.empty()){ 
             cout<<RED<<"Danh sách trống"<<RESET<<endl;   // Nếu trống thì không cần yêu cầu nhập mã và thoát luôn
-            break;
+            break; // Thoát khỏi case 5 nếu danh sách trống để tránh yêu cầu nhập mã tài liệu không tồn tại
           }
-          string MaCanXoa;
-          clearBuffer(); // Dọn bộ nhớ trước khi lấy mã tài liệu cần xóa để tránh bị nhảy do cặn Enter
-          while(true){  // Vòng lặp để đảm bảo người dùng nhập mã tài liệu cần xóa không được để trống
+          string maCanXoa;
+          // Yêu cầu nhập mã tài liệu cần xóa và đảm bảo không để trống bằng vòng lặp kiểm tra
+          clearBuffer(); 
+          // Vòng lặp này sẽ tiếp tục yêu cầu nhập mã tài liệu cho tới khi người dùng nhập một chuỗi không rỗng (có thể có khoảng trắng nếu cần) để đảm bảo có mã tài liệu để tìm kiếm và xóa
+          while(true){  
           cout<<"Nhập mã tài liệu cần xóa: ";   
-          getline(cin,MaCanXoa); // Sử dụng getline để cho phép mã tài liệu có khoảng trắng nếu cần
-          if(!MaCanXoa.empty()){   // Nếu mã không trống thì thoát vòng lặp, tiếp tục xử lý xóa
+          getline(cin,maCanXoa); // Sử dụng getline để cho phép mã tài liệu có khoảng trắng nếu cần
+          if(!maCanXoa.empty()){   // Nếu mã không trống thì thoát vòng lặp, tiếp tục xử lý xóa
             break;
           }else{
-          cout<<RED<<"Không có mã tài liệu nào.Vui lòng nhập lại!"<<RESET<<endl; // Nếu mã trống thì cảnh báo và yêu cầu nhập lại
+          cout<<RED<<"Không có mã tài liệu nào. Vui lòng nhập lại!"<<RESET<<endl; // Nếu mã trống thì cảnh báo và yêu cầu nhập lại
         }
     }
-          vector<int> ViTriXoa; // Tạo một vector để lưu trữ các vị trí của tài liệu có mã trùng với mã cần xóa
+    // Tìm kiếm tất cả các tài liệu có mã trùng với mã cần xóa và lưu vị trí của chúng vào một vector viTriXoa để xử lý tiếp theo
+          vector<int> viTriXoa; 
           for(int i=0;i< (int)danhSachTaiLieu.size();i++){  // Duyệt qua danh sách tài liệu để tìm kiếm các tài liệu có mã trùng với mã cần xóa
-            if(danhSachTaiLieu[i]->getMaTaiLieu()==MaCanXoa){  // Nếu tìm thấy tài liệu có mã trùng thì lưu vị trí của nó vào vector ViTriXoa
-              ViTriXoa.push_back(i);  //  Lưu vị trí của tài liệu có mã trùng vào vector ViTriXoa
+            if(danhSachTaiLieu[i]->getMaTaiLieu()==maCanXoa){  // Nếu tìm thấy tài liệu có mã trùng thì lưu vị trí của nó vào vector viTriXoa
+              viTriXoa.push_back(i);  //  Lưu vị trí của tài liệu có mã trùng vào vector viTriXoa
             }
           }
-          if(ViTriXoa.empty()){   // Nếu không tìm thấy tài liệu nào có mã trùng với mã cần xóa thì thông báo và thoát
-            cout<<RED<<"Không tìm thấy mã tài liệu\""<<MaCanXoa<<"\"!"<<RESET<<endl;
+          if(viTriXoa.empty()){   // Nếu không tìm thấy tài liệu nào có mã trùng với mã cần xóa thì thông báo và thoát
+            cout<<RED<<"Không tìm thấy mã tài liệu \""<<maCanXoa<<"\"!"<<RESET<<endl;
             break;
           } 
           int index = -1; // Khai báo biến index để lưu vị trí của tài liệu cần xóa sau khi người dùng chọn nếu có nhiều hơn một tài liệu trùng mã
-          cout<<"\n"<<BOLD<<GREEN<<"TÀI LIỆU CÓ MÃ \""<<MaCanXoa<<"\""<<RESET<<"\n";
+          cout<<"\n"<<BOLD<<GREEN<<"TÀI LIỆU CÓ MÃ \""<<maCanXoa<<"\""<<RESET<<"\n";
           InTieuDeBang();
-          if(ViTriXoa.size()==1){  // Nếu chỉ có một tài liệu trùng mã thì tự động chọn tài liệu đó để hiển thị thông tin và xác nhận xóa
-            index=ViTriXoa[0];  // Lấy vị trí của tài liệu cần xóa từ vector ViTriXoa
-            cout<<left<<setw(5)<<"1. "; 
+          if(viTriXoa.size()==1){  // Nếu chỉ có một tài liệu trùng mã thì tự động chọn tài liệu đó để hiển thị thông tin và xác nhận xóa
+            index=viTriXoa[0];  // Lấy vị trí của tài liệu cần xóa từ vector viTriXoa
             danhSachTaiLieu[index]->HienThiThongTin(cout);  // Hiển thị thông tin của tài liệu cần xóa
           }else{
-            for(int i=0;i<(int)ViTriXoa.size();i++){  // Nếu có nhiều hơn một tài liệu trùng mã thì hiển thị danh sách các tài liệu đó để người dùng chọn tài liệu cần xóa
-              cout<<left<<setw(5)<<to_string(i+1)+". ";
-              danhSachTaiLieu[ViTriXoa[i]]->HienThiThongTin(cout);  // Hiển thị thông tin của từng tài liệu trùng mã để người dùng có thể phân biệt và chọn đúng tài liệu cần xóa
-              cout<<endl;
+            for(int i=0;i<(int)viTriXoa.size();i++){  // Nếu có nhiều hơn một tài liệu trùng mã thì hiển thị danh sách các tài liệu đó để người dùng chọn tài liệu cần xóa
+              danhSachTaiLieu[viTriXoa[i]]->HienThiThongTin(cout);  // Hiển thị thông tin của từng tài liệu trùng mã để người dùng có thể phân biệt và chọn đúng tài liệu cần xóa
             }
             cout<<string(155,'-')<<endl;
-            int LuaChonXoa;
-            bool hople=false; // Biến cờ để kiểm tra tính hợp lệ của lựa chọn xóa khi có nhiều hơn một tài liệu trùng mã
-            while(!hople){  // Vòng lặp để đảm bảo người dùng nhập lựa chọn xóa hợp lệ khi có nhiều hơn một tài liệu trùng mã
-              cout<<"Nhập số thứ tự tài liệu muốn xóa (1-"<<ViTriXoa.size()<<"): ";
-              cin>>LuaChonXoa;
-              if(cin.fail()||LuaChonXoa <1 || LuaChonXoa>(int)ViTriXoa.size()){ // Nếu người dùng nhập không phải là số hoặc số thứ tự không hợp lệ (nhỏ hơn 1 hoặc lớn hơn số lượng tài liệu trùng mã) thì cảnh báo và yêu cầu nhập lại
-                cin.clear();
-                clearBuffer();
+            
+            int luaChonXoa;
+            bool isSelectionValid=false; // Biến cờ để kiểm tra tính hợp lệ của lựa chọn xóa khi có nhiều hơn một tài liệu trùng mã
+            while(!isSelectionValid){  // Vòng lặp để đảm bảo người dùng nhập lựa chọn xóa hợp lệ khi có nhiều hơn một tài liệu trùng mã
+              cout<<"Nhập số thứ tự tài liệu muốn xóa (1-"<<viTriXoa.size()<<"): ";
+              cin>>luaChonXoa;
+              if(cin.fail()||luaChonXoa <1 || luaChonXoa>(int)viTriXoa.size()){ // Nếu người dùng nhập không phải là số hoặc số thứ tự không hợp lệ (nhỏ hơn 1 hoặc lớn hơn số lượng tài liệu trùng mã) thì cảnh báo và yêu cầu nhập lại
+                cin.clear();     // Reset trạng thái lỗi của luồng nhập
+                clearBuffer();  // Xóa bỏ các ký tự còn lại trong bộ nhớ đệm để tránh ảnh hưởng đến lần nhập tiếp theo
                 cout<<RED<<"Lựa chọn không hợp lệ. Vui lòng nhập lại!"<<RESET<<endl;
               }
-              else{
-                clearBuffer();
-                hople=true;
+              else{  // Nếu người dùng nhập hợp lệ thì thoát vòng lặp và tiếp tục xử lý xóa tài liệu dựa trên lựa chọn của người dùng
+                clearBuffer();    // Xóa bỏ các ký tự còn lại trong bộ nhớ đệm sau khi nhập số thứ tự để tránh ảnh hưởng đến lần nhập tiếp theo
+                isSelectionValid=true;   // Đặt cờ isSelectionValid thành true để thoát vòng lặp vì đã có lựa chọn xóa hợp lệ từ người dùng
               }
               }
-              index=ViTriXoa[LuaChonXoa-1]; // Lấy vị trí của tài liệu cần xóa từ vector ViTriXoa dựa trên lựa chọn của người dùng
+              index=viTriXoa[luaChonXoa-1]; // Lấy vị trí của tài liệu cần xóa từ vector viTriXoa dựa trên lựa chọn của người dùng
               cout<<GREEN<<"Tài liệu được chọn: "<<RESET<<endl;
               InTieuDeBang();
               danhSachTaiLieu[index]->HienThiThongTin(cout); // Hiển thị thông tin của tài liệu được chọn để xác nhận xóa
-              cout<<endl;
             }
             cout<<string(155,'-')<<endl;
             if(index==-1) break; // Nếu index vẫn là -1 sau khi xử lý lựa chọn xóa thì thoát (trường hợp này không xảy ra do đã có kiểm tra hợp lệ ở trên nhưng vẫn đảm bảo an toàn)
-            char XacNhan;
+            char xacNhan;
             while(true){  // Vòng lặp để đảm bảo người dùng nhập xác nhận xóa hợp lệ (Y/N)
             cout<<BOLD<<RED<<"Bạn có chắc chắn muốn xóa tài liệu này? (Y/N): "<<RESET;
-            cin>>XacNhan;
+            cin>>xacNhan;
+            
             clearBuffer();
-            if(XacNhan=='Y'||XacNhan=='y'){
-              delete danhSachTaiLieu[index];
+            // Nếu người dùng xác nhận xóa bằng cách nhập Y hoặc y thì tiến hành xóa tài liệu khỏi danh sách và lưu lại dữ liệu vào file, sau đó thông báo xóa thành công và thoát vòng lặp
+            if(xacNhan=='Y'||xacNhan=='y'){
+              delete danhSachTaiLieu[index]; // Giải phóng bộ nhớ cho tài liệu cần xóa trước khi xóa khỏi vector danh sách để tránh rò rỉ bộ nhớ
               danhSachTaiLieu.erase(danhSachTaiLieu.begin()+index); // Xóa tài liệu khỏi vector danh sách sau khi đã giải phóng bộ nhớ cho tài liệu đó
               LuuDuLieu(danhSachTaiLieu); // Lưu lại danh sách sau khi xóa tài liệu để cập nhật dữ liệu vào file
               cout<<GREEN<<"Xóa tài liệu thành công!"<<RESET<<endl;
               break;
           }
-          else if(XacNhan=='N'||XacNhan=='n'){
+          else if(xacNhan=='N'||xacNhan=='n'){ // Nếu người dùng hủy xóa bằng cách nhập N hoặc n thì thông báo hủy xóa và thoát vòng lặp
             cout<<YELLOW<<"Hủy xóa tài liệu."<<RESET<<endl;
             break;
           }
-          else{
+          else{ // Nếu người dùng nhập không phải là Y/y/N/n thì cảnh báo và yêu cầu nhập lại
             cout<<RED<<"Lựa chọn không hợp lệ.Vui lòng nhập lại!"<<RESET<<endl;
 
           }
