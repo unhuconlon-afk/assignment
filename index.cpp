@@ -793,6 +793,7 @@ int main() {
         case 5:{
           if(danhSachTaiLieu.empty()){ // Kiểm tra nếu danh sách tài liệu trống trước khi yêu cầu nhập mã
             cout<<RED<<"Danh sách trống"<<RESET<<endl;   // Nếu trống thì không cần yêu cầu nhập mã và thoát luôn
+            break;
           }
           string MaCanXoa;
           while(true){  // Vòng lặp để đảm bảo người dùng nhập mã tài liệu cần xóa không được để trống
@@ -814,7 +815,7 @@ int main() {
             cout<<RED<<"Không tìm thấy mã tài liệu\""<<MaCanXoa<<"\"!"<<RESET<<endl;
             break;
           } 
-          int index; // Khai báo biến index để lưu vị trí của tài liệu cần xóa sau khi người dùng chọn nếu có nhiều hơn một tài liệu trùng mã
+          int index = -1; // Khai báo biến index để lưu vị trí của tài liệu cần xóa sau khi người dùng chọn nếu có nhiều hơn một tài liệu trùng mã
           cout<<"\n"<<BOLD<<GREEN<<"TÀI LIỆU CÓ MÃ \""<<MaCanXoa<<"\""<<RESET<<"\n";
           InTieuDeBang();
           if(ViTriXoa.size()==1){  // Nếu chỉ có một tài liệu trùng mã thì tự động chọn tài liệu đó để hiển thị thông tin và xác nhận xóa
@@ -850,7 +851,9 @@ int main() {
               cout<<endl;
             }
             cout<<string(155,'-')<<endl;
+            if(index==-1) break; // Nếu index vẫn là -1 sau khi xử lý lựa chọn xóa thì thoát (trường hợp này không xảy ra do đã có kiểm tra hợp lệ ở trên nhưng vẫn đảm bảo an toàn)
             char XacNhan;
+            while(true){  // Vòng lặp để đảm bảo người dùng nhập xác nhận xóa hợp lệ (Y/N)
             cout<<BOLD<<RED<<"Bạn có chắc chắn muốn xóa tài liệu này? (Y/N): "<<RESET;
             cin>>XacNhan;
             clearBuffer();
@@ -869,7 +872,9 @@ int main() {
             cout<<RED<<"Lựa chọn không hợp lệ. Hủy xóa tài liệu."<<RESET<<endl;
 
           }
-        }
+        } 
+        break;
+      }
         break;
       case 0:
         cout << "Đang đăng xuất...\n";
