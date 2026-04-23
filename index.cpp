@@ -1,6 +1,7 @@
 // Nạp các thư viện chuẩn cần thiết cho chương trình
 #include <algorithm> // Thư viện chứa std::transform
 #include <cctype>    // Thư viện chứa ::tolower
+#include <ctime>     // Cung cấp các hàm lấy và xử lý thời gian hệ thống
 #include <fstream>   // Thư viện dùng để đọc/ghi file dữ liệu
 #include <iomanip> // Cung cấp các thao tác định dạng căn trích như setw (cột) và left (căn trái)
 #include <iostream> // Cung cấp các luồng nhập/xuất chuẩn như cin, cout
@@ -61,6 +62,7 @@ public:
   string getUsername() const { return username; }
   string getPassword() const { return password; }
   string getRole() const { return role; }
+  void setPassword(string pwd) { password = pwd; }
 };
 
 // Lớp Librarian (Thủ thư): Đại diện cho nhân viên thư viện, có các quyền quản lý đầy đủ (Thêm/Xóa)
@@ -94,41 +96,146 @@ public:
   }
 
   // Hàm login: Tạo vòng lặp yêu cầu người dùng nhập tên và mật khẩu. Trả về đúng đối tượng User theo quyền nếu khớp file.
+  static void dangKy() {
+    string newUser, newPwd;
+    cout << "\n"
+         << BOLD << CYAN << "=== ĐĂNG KÝ TÀI KHOẢN MỚI ===" << RESET << "\n";
+    cout << "Tên tài khoản: ";
+    cin >> newUser;
+
+    ifstream ifs("users.txt");
+    string line, uname, pwd, role;
+    bool exists = false;
+    while (getline(ifs, line)) {
+      stringstream ss(line);
+      getline(ss, uname, '|');
+      if (uname == newUser) {
+        exists = true;
+        break;
+      }
+    }
+    ifs.close();
+
+    if (exists) {
+      cout << RED << "Tài khoản đã tồn tại! Vui lòng chọn tên khác." << RESET
+           << "\n";
+      return;
+    }
+
+    cout << "Mật khẩu: ";
+    cin >> newPwd;
+
+    ofstream ofs("users.txt", ios::app);
+    if (!ofs) {
+      cout << RED << "Lỗi mở file users.txt" << RESET << "\n";
+      return;
+    }
+    ofs << newUser << "|" << newPwd << "|Reader\n";
+    ofs.close();
+    cout << GREEN << "Đăng ký thành công! Bạn có thể đăng nhập ngay bây giờ."
+         << RESET << "\n";
+  }
+
+  static void doiMatKhau(User *currentUser) {
+    string currentPwd, newPwd;
+    cout << "\n" << BOLD << CYAN << "=== ĐỔI MẬT KHẨU ===" << RESET << "\n";
+    cout << "Nhập mật khẩu hiện tại: ";
+    cin >> currentPwd;
+
+    if (currentPwd != currentUser->getPassword()) {
+      cout << RED << "Mật khẩu hiện tại không đúng!" << RESET << "\n";
+      return;
+    }
+
+    cout << "Nhập mật khẩu mới: ";
+    cin >> newPwd;
+
+    ifstream ifs("users.txt");
+    vector<string> lines;
+    string line;
+    while (getline(ifs, line)) {
+      stringstream ss(line);
+      string uname, pwd, role;
+      getline(ss, uname, '|');
+      getline(ss, pwd, '|');
+      getline(ss, role, '|');
+
+      if (uname == currentUser->getUsername()) {
+        lines.push_back(uname + "|" + newPwd + "|" + role);
+      } else {
+        lines.push_back(line);
+      }
+    }
+    ifs.close();
+
+    ofstream ofs("users.txt");
+    for (const string &l : lines) {
+      ofs << l << "\n";
+    }
+    ofs.close();
+
+    currentUser->setPassword(newPwd);
+    cout << GREEN << "Đổi mật khẩu thành công!" << RESET << "\n";
+  }
+
   static User *login() {
     taoFileChuan();
-    string reqUser, reqPwd;
+    int choice;
     while (true) {
       cout << "\n"
-           << BOLD << CYAN << "=== ĐĂNG NHẬP HỆ THỐNG ===" << RESET << "\n";
-      cout << "Tài khoản (Nhập '0' để thoát): ";
-      cin >> reqUser;
-      if (reqUser == "0")
-        return nullptr;
-      cout << "Mật khẩu: ";
-      cin >> reqPwd;
-
-      ifstream ifs("users.txt");
-      string line;
-      while (getline(ifs, line)) {
         // Dùng công cụ stringstream cắt xẻ chuỗi trên một dòng dựa trên dấu
         // vạch đứng '|'
-        stringstream ss(line);
-        string uname, pwd, role;
-        getline(ss, uname, '|');
-        getline(ss, pwd, '|');
-        getline(ss, role, '|');
-
-        if (uname == reqUser && pwd == reqPwd) {
-          cout << GREEN << "\nĐăng nhập thành công! Vai trò: " << role << RESET
-               << "\n";
-          if (role == "Librarian")
-            return new Librarian(uname, pwd);
-          else
-            return new Reader(uname, pwd);
-        }
+           << BOLD << CYAN << "=== TRANG CHỦ THƯ VIỆN ===" << RESET << "\n";
+      cout << "1. Đăng nhập\n";
+      cout << "2. Đăng ký (Dành cho Reader)\n";
+      cout << "0. Thoát\n";
+      cout << "Lựa chọn: ";
+      if (!(cin >> choice)) {
+        cout << RED << "Lựa chọn không hợp lệ!" << RESET << "\n";
+        clearBuffer();
+        continue;
       }
-      cout << RED << "Tài khoản hoặc mật khẩu không chính xác. Thử lại!"
-           << RESET << "\n";
+
+      if (choice == 0)
+        return nullptr;
+      if (choice == 2) {
+        dangKy();
+        continue;
+      }
+      if (choice == 1) {
+        string reqUser, reqPwd;
+        cout << "Tài khoản: ";
+        cin >> reqUser;
+        cout << "Mật khẩu: ";
+        cin >> reqPwd;
+
+        ifstream ifs("users.txt");
+        string line;
+        bool found = false;
+        while (getline(ifs, line)) {
+          stringstream ss(line);
+          string uname, pwd, role;
+          getline(ss, uname, '|');
+          getline(ss, pwd, '|');
+          getline(ss, role, '|');
+
+          if (uname == reqUser && pwd == reqPwd) {
+            cout << GREEN << "\nĐăng nhập thành công! Vai trò: " << role
+                 << RESET << "\n";
+            found = true;
+            if (role == "Librarian")
+              return new Librarian(uname, pwd);
+            else
+              return new Reader(uname, pwd);
+          }
+        }
+        if (!found) {
+          cout << RED << "Tài khoản hoặc mật khẩu không chính xác. Thử lại!"
+               << RESET << "\n";
+        }
+      } else {
+        cout << RED << "Lựa chọn không hợp lệ!" << RESET << "\n";
+      }
     }
   }
 };
@@ -209,6 +316,42 @@ public:
 
   // Phương thức ảo trả về loại tài liệu (1=Sách, 2=Tạp Chí, 3=Báo)
   virtual int getLoaiTaiLieu() const = 0;
+
+  // Phương thức ảo để sửa thông tin
+  virtual void SuaThongTin() = 0;
+
+  // Phương thức ảo lấy chuỗi chi tiết cho tìm kiếm sâu
+  virtual string getChiTietHienThi() const { return ""; }
+
+  // Phương thức hỗ trợ sửa thông tin chung
+  void SuaThongTinChung() {
+    string tmp;
+    cout << "Tên tài liệu (" << tenTaiLieu
+         << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      tenTaiLieu = tmp;
+      sanitizeString(tenTaiLieu);
+    }
+
+    cout << "Nhà Xuất Bản (" << nhaXuatBan
+         << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      nhaXuatBan = tmp;
+      sanitizeString(nhaXuatBan);
+    }
+
+    cout << "Năm Xuất Bản (" << namXuatBan
+         << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      try {
+        namXuatBan = stoi(tmp);
+      } catch (...) {
+      }
+    }
+  }
 };
 
 // Cung cấp định nghĩa cho các hàm thuần ảo để các lớp con có thể tái sử dụng
@@ -350,7 +493,7 @@ public:
     // Tinh Tiền đi kèm định dạng màu
     os << left << setw(11 + sizeof("Sách") - 1) << "Sách" << setw(20) << tacGia
        << setw(15) << (to_string(soTrang) + " trang") << YELLOW << setw(15)
-       << TinhTien() << RESET << endl;
+       << fixed << setprecision(0) << TinhTien() << RESET << endl;
   }
 
   // Cấu hình quy tắc riêng trả về phép tính Tiền dựa vào Số Trang
@@ -366,6 +509,30 @@ public:
   }
 
   int getLoaiTaiLieu() const override { return 1; }
+
+  void SuaThongTin() override {
+    clearBuffer();
+    cout << "--- SỬA THÔNG TIN SÁCH ---\n";
+    TaiLieu::SuaThongTinChung();
+    string tmp;
+    cout << "Tác giả (" << tacGia << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      tacGia = tmp;
+      sanitizeString(tacGia);
+    }
+
+    cout << "Số trang (" << soTrang << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      try {
+        soTrang = stoi(tmp);
+      } catch (...) {
+      }
+    }
+  }
+
+  string getChiTietHienThi() const override { return tacGia; }
 
   // Toán tử quá tải nhập/xuất riêng cho lớp Sách (khớp với sơ đồ UML)
   // Quá tải toán tử nhúng (>>): Cho phép lệnh cin tác động trực tiếp lên nguyên một khối Sách s
@@ -453,7 +620,7 @@ public:
         "Số: " + to_string(soPhatHanh) + ", T" + to_string(thangPhatHanh);
     os << left << setw(8 + sizeof("Tạp chí") - 1) << "Tạp chí" << setw(20)
        << "N/A" << setw(11 + sizeof("Số: ") - 1) << thongTinRieng << YELLOW
-       << setw(15) << TinhTien() << RESET << endl;
+       << setw(15) << fixed << setprecision(0) << TinhTien() << RESET << endl;
   }
 
   // Xếp giá bán quy chế Tạp chí theo hằng số 25,000 VNĐ một bản không đổi
@@ -467,6 +634,32 @@ public:
   }
 
   int getLoaiTaiLieu() const override { return 2; }
+
+  void SuaThongTin() override {
+    clearBuffer();
+    cout << "--- SỬA THÔNG TIN TẠP CHÍ ---\n";
+    TaiLieu::SuaThongTinChung();
+    string tmp;
+    cout << "Số phát hành (" << soPhatHanh
+         << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      try {
+        soPhatHanh = stoi(tmp);
+      } catch (...) {
+      }
+    }
+
+    cout << "Tháng phát hành (" << thangPhatHanh
+         << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      try {
+        thangPhatHanh = stoi(tmp);
+      } catch (...) {
+      }
+    }
+  }
 
   // Toán tử quá tải nhập/xuất riêng cho lớp Tạp chí (khớp với sơ đồ UML)
   // Quá tải toán tử luồng lệnh nhập chuẩn cin >> cho riêng Tạp Chí
@@ -530,7 +723,7 @@ public:
     string thongTinRieng = "Ngày: " + to_string(ngayPhatHanh);
     os << left << setw(12 + sizeof("Báo") - 1) << "Báo" << setw(20) << "N/A"
        << setw(9 + sizeof("Ngày: ") - 1) << thongTinRieng << YELLOW << setw(15)
-       << TinhTien() << RESET << endl;
+       << fixed << setprecision(0) << TinhTien() << RESET << endl;
   }
 
   // Tái cấu trúc giá trị tiền tệ của một quyển Báo lấy 5,000 VNĐ cố định
@@ -544,6 +737,22 @@ public:
   }
 
   int getLoaiTaiLieu() const override { return 3; }
+
+  void SuaThongTin() override {
+    clearBuffer();
+    cout << "--- SỬA THÔNG TIN BÁO ---\n";
+    TaiLieu::SuaThongTinChung();
+    string tmp;
+    cout << "Ngày phát hành (" << ngayPhatHanh
+         << "). Nhập mới hoặc Enter để bỏ qua: ";
+    getline(cin, tmp);
+    if (!tmp.empty()) {
+      try {
+        ngayPhatHanh = stoi(tmp);
+      } catch (...) {
+      }
+    }
+  }
 
   // Toán tử quá tải nhập/xuất riêng cho lớp Báo (khớp với sơ đồ UML)
   // Quá tải luồng chuẩn nhập dữ liệu cin >> áp dụng đối tượng Báo
@@ -560,559 +769,614 @@ public:
 };
 
 // ==========================================================
-// 3. CHƯƠNG TRÌNH CHÍNH (Vận hành trung tâm Console)
+// 3. HỆ THỐNG QUẢN LÝ (LibrarySystem)
 // ==========================================================
 
 // Hàm vẽ khung đỉnh và đề mục bảng hiển thị danh sách chi tiết (xử lý byte bù
 // trừ cho UTF-8 an toàn)
 // Hàm InTieuDeBang: (Toàn cục) Giúp xây dựng cấu trúc in bảng vạch kẻ và giãn khoảng cách (setw) hợp lý
-void InTieuDeBang() {
-  cout << string(155, '-')
-       << endl; // Đổ ra một dải đường ngang biên giới trên độ dài 155 ký hiệu
-  cout << BOLD << CYAN << left << setw(5 + sizeof("Mã TL") - 1) << "Mã TL"
-       << setw(13 + sizeof("Tên Tài Liệu") - 1) << "Tên Tài Liệu"
-       << setw(8 + sizeof("Nhà Xuất Bản") - 1) << "Nhà Xuất Bản"
-       << setw(4 + sizeof("Năm XB") - 1) << "Năm XB"
-       << setw(15 + sizeof("Tình Trạng") - 1) << "Tình Trạng"
-       << setw(6 + sizeof("Phân Loại") - 1) << "Phân Loại"
-       << setw(13 + sizeof("Tác Giả") - 1) << "Tác Giả"
-       << setw(7 + sizeof("Chi Tiết") - 1) << "Chi Tiết"
-       << setw(7 + sizeof("Giá Tiền") - 1) << "Giá Tiền" << RESET
-       << endl; // Chèn mã kết thúc làm màu về mặc định
-  cout << string(155, '-')
-       << endl; // Đổ đường viền phân tách các hàng thông tin số liệu chính yếu
-}
-
 // === CÁC HÀM XỬ LÝ FILE (Persistence) ===
 // Hàm tiện ích chuyển sang chữ thường (Case-insensitive)
 // Hàm toLowerCase: Trợ thủ biến toàn bộ string chữ in hoa sang kiểu chữ in thường, rất hữu dụng khi tìm tài liệu
-string toLowerCase(string s) {
-  transform(s.begin(), s.end(), s.begin(),
-            [](unsigned char c) { return tolower(c); });
-  return s;
-}
-
 // ==========================================================
 // 3. LỚP QUẢN LÝ THƯ VIỆN: LibrarySystem
 // ==========================================================
 // Giải thích: Lớp Quản lý trung tâm, đóng gói (Encapsulate) toàn bộ dữ liệu và
 // các hàm nghiệp vụ của chương trình.
-class LibrarySystem {
-private:
   // Giải thích: Mảng động chứa danh sách tài liệu. Nhờ Đa hình, 1 mảng này có
   // thể chứa mix cả Sách, Báo và Tạp chí.
-  vector<TaiLieu *> ds;
-
-public:
-  LibrarySystem() {}
-
-  ~LibrarySystem() {
-    for (auto tl : ds) {
-      if (tl != nullptr) {
-        delete tl;
-      }
-    }
-    ds.clear();
-  }
-
-  vector<TaiLieu *> &getDS() { return ds; }
-
   // Hàm LoadDuLieu: Đọc dữ liệu từ file txt lên bộ nhớ (vào mảng) khi vừa khởi
   // động chương trình.
-  void LoadDuLieu(vector<TaiLieu *> &danhSach) {
-    ifstream ifs("data.txt");
-    if (!ifs.is_open())
-      return;
-
-    string line;
-    while (getline(ifs, line)) {
-      if (line.empty())
-        continue;
       // Dùng công cụ stringstream cắt xẻ chuỗi trên một dòng dựa trên dấu vạch
       // đứng '|'
-      stringstream ss(line);
-      string typeStr, ma, ten, nxb, namStr, borrowStr, borrower;
-
-      getline(ss, typeStr, '|');
-      getline(ss, ma, '|');
-      getline(ss, ten, '|');
-      getline(ss, nxb, '|');
-      getline(ss, namStr, '|');
-      getline(ss, borrowStr, '|');
-      getline(ss, borrower, '|');
-
-      if (typeStr.empty())
-        continue;
-
-      try {
         // Ép kiểu chuỗi sang số nguyên để xác định loại: 1 (Sách), 2 (Tạp Chí),
         // 3 (Báo)
-        int type = stoi(typeStr);
-
-        TaiLieu *newItem = nullptr;
-
-        if (type == 1) {
-          string stStr, tacGia;
-          getline(ss, stStr, '|');
-          getline(ss, tacGia, '|');
-          newItem = new Sach(ma, ten, nxb, stoi(namStr), stoi(stStr), tacGia);
-        } else if (type == 2) {
-          string sphStr, tphStr;
-          getline(ss, sphStr, '|');
-          getline(ss, tphStr, '|');
-          newItem = new TapChi(ma, ten, nxb, stoi(namStr), stoi(sphStr),
-                               stoi(tphStr));
-        } else if (type == 3) {
-          string nphStr;
-          getline(ss, nphStr, '|');
-          newItem = new Bao(ma, ten, nxb, stoi(namStr), stoi(nphStr));
-        }
-
-        if (newItem != nullptr) {
-          newItem->setIsBorrowed(borrowStr == "1");
-          newItem->setBorrowerName(borrower);
-          danhSach.push_back(newItem);
-        }
-      } catch (...) {
-        continue;
-      }
-    }
-    ifs.close();
-  }
-
   // Hàm LuuDuLieu: Đồng bộ/ghi lưu toàn bộ danh sách tài liệu hiện có trong
   // mảng xuống file data.txt.
-  void LuuDuLieu(const vector<TaiLieu *> &danhSach) {
-    ofstream ofs("data.txt");
-    if (ofs.is_open()) {
-      for (const auto &tl : danhSach) {
-        if (tl != nullptr) {
-          tl->Luu(ofs);
-        }
-      }
-      ofs.close();
-    }
-  }
-
   // Hàm thongKeChiTiet: Đếm số lượng, tính tổng tiền và hiển thị thống kê tổng
   // quan các loại tài liệu.
-  void thongKeChiTiet(const vector<TaiLieu *> &danhSach) {
-    int soSach = 0, soTapChi = 0, soBao = 0;
-    int sachDangMuon = 0, tapChiDangMuon = 0, baoDangMuon = 0;
-    double tienSach = 0, tienTapChi = 0, tienBao = 0;
-
-    for (const auto &tl : danhSach) {
-      if (tl == nullptr)
-        continue;
-      int type = tl->getLoaiTaiLieu();
-      if (type == 1) {
-        soSach++;
-        tienSach += tl->TinhTien();
-        if (tl->getIsBorrowed())
-          sachDangMuon++;
-      } else if (type == 2) {
-        soTapChi++;
-        tienTapChi += tl->TinhTien();
-        if (tl->getIsBorrowed())
-          tapChiDangMuon++;
-      } else if (type == 3) {
-        soBao++;
-        tienBao += tl->TinhTien();
-        if (tl->getIsBorrowed())
-          baoDangMuon++;
-      }
-    }
-
     // Gộp tất cả các biến cộng đồn lại để chốt thông số tổng
-    int tong = soSach + soTapChi + soBao;
-    int tongDangMuon = sachDangMuon + tapChiDangMuon + baoDangMuon;
-    double tongTien = tienSach + tienTapChi + tienBao;
-
-    cout << "\n"
-         << BOLD << CYAN << "========== THỐNG KÊ CHI TIẾT ==========" << RESET
-         << endl;
-
-    cout << BOLD << GREEN << "\n--- SÁCH ---\n" << RESET;
-    cout << "Tổng số: " << soSach << endl;
-    cout << "Đang mượn: " << sachDangMuon << endl;
-    cout << "Còn lại: " << (soSach - sachDangMuon) << endl;
-    cout << "Tổng tiền: " << fixed << setprecision(0) << tienSach << " VNĐ\n";
-
-    cout << BOLD << GREEN << "\n--- TẠP CHÍ ---\n" << RESET;
-    cout << "Tổng số: " << soTapChi << endl;
-    cout << "Đang mượn: " << tapChiDangMuon << endl;
-    cout << "Còn lại: " << (soTapChi - tapChiDangMuon) << endl;
-    cout << "Tổng tiền: " << fixed << setprecision(0) << tienTapChi << " VNĐ\n";
-
-    cout << BOLD << GREEN << "\n--- BÁO ---\n" << RESET;
-    cout << "Tổng số: " << soBao << endl;
-    cout << "Đang mượn: " << baoDangMuon << endl;
-    cout << "Còn lại: " << (soBao - baoDangMuon) << endl;
-    cout << "Tổng tiền: " << fixed << setprecision(0) << tienBao << " VNĐ\n";
-
-    cout << BOLD << RED << "\n=== TỔNG TOÀN BỘ ===\n" << RESET;
-    cout << "Tổng tài liệu: " << tong << endl;
-    cout << "Tổng đang mượn: " << tongDangMuon << endl;
-    cout << "Tổng còn lại: " << (tong - tongDangMuon) << endl;
-    cout << "Tổng tiền tất cả: " << fixed << setprecision(0) << tongTien
-         << " VNĐ\n";
-  }
-
   // Hàm timKiemTaiLieu: Hỗ trợ tìm kiếm nhanh tài liệu theo Mã hoặc 1 phần Tên
   // (không phân biệt viết hoa/thường).
-  void timKiemTaiLieu(const vector<TaiLieu *> &danhSach) {
-    string keyword;
-    cout << "Nhập mã hoặc tên tài liệu cần tìm: ";
-    clearBuffer();
-    getline(cin, keyword);
-
     // Ép toàn bộ từ khóa tìm kiếm sang chữ viết thường để chuẩn hóa độ chính
     // xác
-    string keywordToLower = toLowerCase(keyword);
-
-    bool found = false;
-    for (const auto &tl : danhSach) {
-      if (tl != nullptr) {
-        string maToLower = toLowerCase(tl->getMaTaiLieu());
-        string tenToLower = toLowerCase(tl->getTenTaiLieu());
-
         // Kích hoạt ghép khớp nếu từ khóa trùng tuyệt đối mã, HOẶC nằm xen giữa
         // tên tài liệu
-        if (maToLower == keywordToLower ||
-            tenToLower.find(keywordToLower) != string::npos) {
-          if (!found) {
-            cout << "\n"
-                 << BOLD << GREEN << "KẾT QUẢ TÌM KIẾM" << RESET << "\n";
-            InTieuDeBang();
-            found = true;
-          }
-          tl->HienThiThongTin(cout);
-        }
-      }
-    }
-    if (!found)
-      cout << RED << "Không tìm thấy tài liệu!" << RESET << "\n";
-    else
-      cout << string(155, '-') << endl;
-  }
-
   // Hàm muonTaiLieu: Trích chuyển trạng thái tài liệu sang 'Đang mượn' và khóa
   // lại bằng tên người mượn.
-  void muonTaiLieu(vector<TaiLieu *> &danhSach, User *currentUser) {
-    if (currentUser->getRole() != "Reader") {
-      cout << RED << "Chỉ Reader mới có quyền mượn tài liệu!" << RESET << "\n";
-      return;
-    }
-    string ma;
-    cout << "Nhập mã tài liệu muốn mượn: ";
-    cin >> ma;
-    clearBuffer();
-
-    string maToLower = toLowerCase(ma);
-
-    for (auto &tl : danhSach) {
-      if (tl != nullptr && toLowerCase(tl->getMaTaiLieu()) == maToLower) {
-        if (tl->getIsBorrowed()) {
-          cout << RED << "Tài liệu này đã được mượn bởi "
-               << tl->getBorrowerName() << "!" << RESET << "\n";
-        } else {
           // Khóa cờ đánh dấu là đã bị mang đi
-          tl->setIsBorrowed(true);
           // Gắn biên lai tên người dùng đang mượn trực tiếp vào tài liệu
-          tl->setBorrowerName(currentUser->getUsername());
-          LuuDuLieu(danhSach);
-          cout << GREEN << "Mượn tài liệu thành công!" << RESET << "\n";
-        }
-        return;
-      }
-    }
-    cout << RED << "Không tìm thấy mã tài liệu!" << RESET << "\n";
-  }
-
   // Hàm traTaiLieu: Đổi trạng thái tái lưu trữ thành sẵn sàng và gỡ bỏ tên
   // người mượn.
-  void traTaiLieu(vector<TaiLieu *> &danhSach, User *currentUser) {
-    if (currentUser->getRole() != "Reader") {
-      cout << RED << "Chỉ Reader mới có quyền trả tài liệu!" << RESET << "\n";
-      return;
-    }
-    string ma;
-    cout << "Nhập mã tài liệu muốn trả: ";
-    cin >> ma;
-    clearBuffer();
-
-    string maToLower = toLowerCase(ma);
-
-    for (auto &tl : danhSach) {
-      if (tl != nullptr && toLowerCase(tl->getMaTaiLieu()) == maToLower) {
-        if (!tl->getIsBorrowed()) {
-          cout << YELLOW << "Tài liệu này đang rảnh (chưa ai mượn)." << RESET
-               << "\n";
-        } else if (tl->getBorrowerName() != currentUser->getUsername()) {
-          cout << RED << "Bạn không thể trả tài liệu do người khác ("
-               << tl->getBorrowerName() << ") mượn!" << RESET << "\n";
-        } else {
-          tl->setIsBorrowed(false);
-          tl->setBorrowerName("");
-          LuuDuLieu(danhSach);
-          cout << GREEN << "Trả tài liệu thành công!" << RESET << "\n";
-        }
-        return;
-      }
-    }
-    cout << RED << "Không tìm thấy mã tài liệu!" << RESET << "\n";
-  }
-
   // Hàm xoaTaiLieu: Giải phóng hoàn toàn RAM (heap) của tài liệu và đá văng
   // khỏi danh sách (chặn xóa nếu đang có người mượn).
-  void xoaTaiLieu(vector<TaiLieu *> &danhSach) {
-    if (danhSach.empty()) {
-      cout << RED << "Danh sách trống" << RESET << endl;
-      return;
-    }
-    string maCanXoa;
-    cout << "Nhập mã tài liệu cần xóa: ";
-    cin >> maCanXoa;
-    clearBuffer();
-
-    string maToLower = toLowerCase(maCanXoa);
-
     // Tạo một mảng phụ quét gom những vị trí có nhiều bản sao trùng mã với nhau
-    vector<int> viTriXoa;
-    for (int i = 0; i < (int)danhSach.size(); i++) {
-      if (toLowerCase(danhSach[i]->getMaTaiLieu()) == maToLower) {
-        viTriXoa.push_back(i);
-      }
-    }
-
-    if (viTriXoa.empty()) {
-      cout << RED << "Không tìm thấy mã tài liệu \"" << maCanXoa << "\"!"
-           << RESET << endl;
-      return;
-    }
-
-    int index = -1;
-    cout << "\n"
-         << BOLD << GREEN << "TÀI LIỆU CÓ MÃ \"" << maCanXoa << "\"" << RESET
-         << "\n";
-    InTieuDeBang();
-
-    if (viTriXoa.size() == 1) {
-      index = viTriXoa[0];
-      danhSach[index]->HienThiThongTin(cout);
-      cout << endl;
-    } else {
-      for (int i = 0; i < (int)viTriXoa.size(); i++) {
-        cout << BOLD << YELLOW << "Lựa chọn số " << (i + 1) << ":" << RESET
-             << endl;
-        danhSach[viTriXoa[i]]->HienThiThongTin(cout);
-        cout << endl;
-      }
-      cout << string(155, '-') << endl;
-      int luaChonXoa;
-      bool hopLe = false;
-      while (!hopLe) {
-        cout << "Có nhiều tài liệu cùng mã. Nhập lựa chọn số (1-"
-             << viTriXoa.size() << "): ";
-        if (!(cin >> luaChonXoa) || luaChonXoa < 1 ||
-            luaChonXoa > (int)viTriXoa.size()) {
-          clearBuffer();
-          cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!" << RESET
-               << endl;
-        } else {
-          clearBuffer();
-          hopLe = true;
-        }
-      }
-      index = viTriXoa[luaChonXoa - 1];
-      cout << GREEN << "Tài liệu được chọn: " << RESET << endl;
-      InTieuDeBang();
-      danhSach[index]->HienThiThongTin(cout);
-      cout << endl;
-    }
-    cout << string(155, '-') << endl;
-
-    if (danhSach[index]->getIsBorrowed()) {
-      cout << BOLD << RED << "LỖI: Trạng thái hiện tại là 'Đang mượn'." << endl;
-      cout << "Tài liệu đang được mượn bởi "
-           << danhSach[index]->getBorrowerName() << ". Không thể xóa!" << RESET
-           << endl;
-      return;
-    }
-
-    char xacNhan;
-    cout << BOLD << RED
-         << "Bạn có chắc chắn muốn xóa tài liệu này? (Y/N): " << RESET;
-    cin >> xacNhan;
-    clearBuffer();
-    if (xacNhan == 'Y' || xacNhan == 'y') {
       // Lệnh xóa: Phá hủy thu hồi hoàn toàn khoảng nhớ RAM tĩnh
-      delete danhSach[index];
       // Cắt đứt mắt xích chứa tài liệu này khỏi bộ khung danh sách chính
-      danhSach.erase(danhSach.begin() + index);
-      LuuDuLieu(danhSach);
-      cout << GREEN << "Xóa tài liệu thành công!" << RESET << endl;
-    } else {
-      cout << YELLOW << "Hủy xóa tài liệu." << RESET << endl;
-    }
-  }
-};
-
 // Giải thích: Nơi chương trình bắt đầu chạy, chứa vòng lặp hiển thị Menu Tương
 // tác cho người dùng.
-int main() {
-  SetConsoleOutputCP(CP_UTF8);
-  SetConsoleCP(CP_UTF8);
-
   // Kích hoạt Lõi Hệ thống Thư viện tổng (Gom toàn thủ tục vận hành và RAM vào
   // đây)
-  LibrarySystem library;
-  library.LoadDuLieu(library.getDS());
-
-  while (true) {
     // Rào chắn bảo mật: Buộc phải xác thực Account đi qua mới được vào lõi giao
     // tiếp
-    User *currentUser = AuthManager::login();
-    if (currentUser == nullptr) {
-      cout << "Đã hủy đăng nhập.\n";
-      break;
+    // Khai báo biến lưu giữ phím số người dùng vừa bấm để gọi Trình đơn (Menu)
+class LibrarySystem {
+private:
+    vector<TaiLieu*> ds;
+
+    void InTieuDeBang() {
+        cout << string(155, '-') << endl;
+        cout << BOLD << CYAN << left << setw(5 + sizeof("Mã TL") - 1) << "Mã TL"
+             << setw(13 + sizeof("Tên Tài Liệu") - 1) << "Tên Tài Liệu"
+             << setw(8 + sizeof("Nhà Xuất Bản") - 1) << "Nhà Xuất Bản"
+             << setw(4 + sizeof("Năm XB") - 1) << "Năm XB"
+             << setw(15 + sizeof("Tình Trạng") - 1) << "Tình Trạng"
+             << setw(6 + sizeof("Phân Loại") - 1) << "Phân Loại"
+             << setw(13 + sizeof("Tác Giả") - 1) << "Tác Giả"
+             << setw(7 + sizeof("Chi Tiết") - 1) << "Chi Tiết"
+             << setw(7 + sizeof("Giá Tiền") - 1) << "Giá Tiền" << RESET << endl;
+        cout << string(155, '-') << endl;
     }
 
+    void xuatDanhSachCSV(const vector<TaiLieu *> &dsToPrint) {
+        time_t now = time(0);
+        struct tm tstruct;
+        char buf[80];
+        tstruct = *localtime(&now);
+        strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", &tstruct);
+        string filename = "export_" + string(buf) + ".csv";
 
-    // Khai báo biến lưu giữ phím số người dùng vừa bấm để gọi Trình đơn (Menu)
-    int luaChon;
-
-    do {
-      cout << "\n"
-           << BOLD << GREEN << "=== HỆ THỐNG QUẢN LÝ THƯ VIỆN ===" << RESET
-           << "\n";
-      cout << CYAN << "Xin chào, " << currentUser->getUsername() << " ("
-           << currentUser->getRole() << ")\n"
-           << RESET;
-
-      // Tùy theo chức vụ mà khởi động luồng logic xử lý case (trường hợp) tương
-      // ứng
-      if (currentUser->getRole() == "Librarian") {
-        cout << "1. Thêm Sách\n";
-        cout << "2. Thêm Tạp Chí\n";
-        cout << "3. Thêm Báo\n";
-        cout << "4. Hiển thị danh sách và Tính tiền\n";
-        cout << "5. Thống kê chi tiết\n";
-        cout << "6. Xóa tài liệu\n";
-        cout << "0. Thoát và Đăng xuất\n";
-      } else { // Reader menu
-        cout << "1. Tìm kiếm tài liệu\n";
-        cout << "2. Mượn tài liệu\n";
-        cout << "3. Trả tài liệu\n";
-        cout << "4. Xem danh sách tài liệu\n";
-        cout << "0. Thoát và Đăng xuất\n";
-      }
-
-      cout << "Nhập lựa chọn của bạn: ";
-      if (!(cin >> luaChon)) {
-        cout << RED << "Lỗi: Lựa chọn không hợp lệ!\n" << RESET;
-        clearBuffer();
-        luaChon = -1;
-        continue;
-      }
-
-      // Tùy theo chức vụ mà khởi động luồng logic xử lý case (trường hợp) tương
-      // ứng
-      if (currentUser->getRole() == "Librarian") {
-        TaiLieu *tlMoi = nullptr;
-
-        switch (luaChon) {
-        case 1:
-          cout << CYAN << "\nNhập thông tin Sách" << RESET << endl;
-          // Tạo vỏ bọc mới cấp phát trên RAM dọn chỗ chuẩn bị chứa Sách
-          tlMoi = new Sach();
-          break;
-        case 2:
-          cout << CYAN << "\nNhập thông tin Tạp chí" << RESET << endl;
-          tlMoi = new TapChi();
-          break;
-        case 3:
-          cout << CYAN << "\nNhập thông tin Báo" << RESET << endl;
-          tlMoi = new Bao();
-          break;
-        case 4:
-          if (library.getDS().empty()) {
-            cout << RED << "Danh sách trống!" << RESET << endl;
-          } else {
-            cout << "\n"
-                 << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
-            InTieuDeBang();
-            double tongTien = 0;
-            for (const auto &tl : library.getDS()) {
-              tl->HienThiThongTin(cout);
-              tongTien += tl->TinhTien();
+        ofstream ofs(filename);
+        ofs << "MaTL,TenTaiLieu,NhaXuatBan,NamXB,TinhTrang,Loai,ChiTiet\n";
+        for (auto tl : dsToPrint) {
+            if (tl) {
+                string loai = (tl->getLoaiTaiLieu() == 1)   ? "Sach"
+                              : (tl->getLoaiTaiLieu() == 2) ? "TapChi"
+                                                            : "Bao";
+                ofs << tl->getMaTaiLieu() << "," << tl->getTenTaiLieu() << ","
+                    << tl->getNhaXuatBan() << "," << tl->getNamXuatBan() << ","
+                    << (tl->getIsBorrowed() ? "Dang muon" : "San sang") << "," << loai
+                    << "," << tl->getChiTietHienThi() << "\n";
             }
-            cout << string(155, '-') << endl;
-            cout << BOLD << RED << "TỔNG TIỀN TẤT CẢ TÀI LIỆU: " << fixed
-                 << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
-          }
-          break;
-        case 5:
-          library.thongKeChiTiet(library.getDS());
-          break;
-        case 6:
-          library.xoaTaiLieu(library.getDS());
-          break;
-        case 0:
-          cout << "Đang đăng xuất...\n";
-          break;
-        default:
-          cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET;
-          clearBuffer();
+        }
+        cout << GREEN << "Đã xuất dữ liệu ra file " << filename << "\n" << RESET;
+    }
+
+    string toLowerCase(string s) {
+        transform(s.begin(), s.end(), s.begin(),
+                  [](unsigned char c) { return tolower(c); });
+        return s;
+    }
+
+public:
+    LibrarySystem() {}
+
+      // Tùy theo chức vụ mà khởi động luồng logic xử lý case (trường hợp) tương
+      // ứng
+    ~LibrarySystem() {
+        for (auto tl : ds) {
+            if (tl != nullptr) {
+                delete tl;
+            }
+        }
+        ds.clear();
+    }
+
+    void LoadDuLieu() {
+        ifstream ifs("data.txt");
+        if (!ifs.is_open())
+            return;
+        
+        string line;
+        while (getline(ifs, line)) {
+            if (line.empty()) continue;
+            stringstream ss(line);
+            string typeStr, ma, ten, nxb, namStr, borrowStr, borrower;
+
+      // Tùy theo chức vụ mà khởi động luồng logic xử lý case (trường hợp) tương
+      // ứng
+            getline(ss, typeStr, '|');
+            getline(ss, ma, '|');
+            getline(ss, ten, '|');
+            getline(ss, nxb, '|');
+            getline(ss, namStr, '|');
+            getline(ss, borrowStr, '|');
+            getline(ss, borrower, '|');
+
+            if (typeStr.empty()) continue;
+
+            try {
+                int type = stoi(typeStr);
+                TaiLieu *newItem = nullptr;
+
+                if (type == 1) {
+                    string stStr, tacGia;
+                    getline(ss, stStr, '|');
+                    getline(ss, tacGia, '|');
+                    newItem = new Sach(ma, ten, nxb, stoi(namStr), stoi(stStr), tacGia);
+                } else if (type == 2) {
+                    string sphStr, tphStr;
+                    getline(ss, sphStr, '|');
+                    getline(ss, tphStr, '|');
+                    newItem = new TapChi(ma, ten, nxb, stoi(namStr), stoi(sphStr), stoi(tphStr));
+                } else if (type == 3) {
+                    string nphStr;
+                    getline(ss, nphStr, '|');
+                    newItem = new Bao(ma, ten, nxb, stoi(namStr), stoi(nphStr));
+                }
+
+                if (newItem != nullptr) {
+                    newItem->setIsBorrowed(borrowStr == "1");
+                    newItem->setBorrowerName(borrower);
+                    ds.push_back(newItem);
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+        ifs.close();
+    }
+
+    void LuuDuLieu() {
+        ofstream ofs("data.txt");
+        if (ofs.is_open()) {
+            for (const auto &tl : ds) {
+                if (tl != nullptr) {
+                    tl->Luu(ofs);
+                }
+            }
+            ofs.close();
+        }
+    }
+
+    void thongKeChiTiet() {
+        int soSach = 0, soTapChi = 0, soBao = 0;
+        int sachDangMuon = 0, tapChiDangMuon = 0, baoDangMuon = 0;
+        double tienSach = 0, tienTapChi = 0, tienBao = 0;
+
+        for (const auto &tl : ds) {
+            if (tl == nullptr) continue;
+            int type = tl->getLoaiTaiLieu();
+            if (type == 1) {
+                soSach++; tienSach += tl->TinhTien();
+                if (tl->getIsBorrowed()) sachDangMuon++;
+            } else if (type == 2) {
+                soTapChi++; tienTapChi += tl->TinhTien();
+                if (tl->getIsBorrowed()) tapChiDangMuon++;
+            } else if (type == 3) {
+                soBao++; tienBao += tl->TinhTien();
+                if (tl->getIsBorrowed()) baoDangMuon++;
+            }
         }
 
+        int tong = soSach + soTapChi + soBao;
+        int tongDangMuon = sachDangMuon + tapChiDangMuon + baoDangMuon;
+        double tongTien = tienSach + tienTapChi + tienBao;
+
+        cout << "\n" << BOLD << CYAN << "========== THỐNG KÊ CHI TIẾT ==========" << RESET << endl;
+        cout << BOLD << GREEN << "\n--- SÁCH ---\n" << RESET;
+        cout << "Tổng số: " << soSach << "\nĐang mượn: " << sachDangMuon << "\nCòn lại: " << (soSach - sachDangMuon) << "\nTổng tiền: " << fixed << setprecision(0) << tienSach << " VNĐ\n";
+        
+        cout << BOLD << GREEN << "\n--- TẠP CHÍ ---\n" << RESET;
+        cout << "Tổng số: " << soTapChi << "\nĐang mượn: " << tapChiDangMuon << "\nCòn lại: " << (soTapChi - tapChiDangMuon) << "\nTổng tiền: " << fixed << setprecision(0) << tienTapChi << " VNĐ\n";
+        
+        cout << BOLD << GREEN << "\n--- BÁO ---\n" << RESET;
+        cout << "Tổng số: " << soBao << "\nĐang mượn: " << baoDangMuon << "\nCòn lại: " << (soBao - baoDangMuon) << "\nTổng tiền: " << fixed << setprecision(0) << tienBao << " VNĐ\n";
+
+        cout << BOLD << RED << "\n=== TỔNG TOÀN BỘ ===\n" << RESET;
+        cout << "Tổng tài liệu: " << tong << "\nTổng đang mượn: " << tongDangMuon << "\nTổng còn lại: " << (tong - tongDangMuon) << "\nTổng tiền tất cả: " << fixed << setprecision(0) << tongTien << " VNĐ\n";
+    }
+
+    void xemVaLocDanhSach() {
+        if (ds.empty()) {
+            cout << RED << "Danh sách trống!\n" << RESET;
+            return;
+        }
+
+        int filterOption = 0;
+        cout << "\nBộ lọc: 1. Tất cả | 2. Sách | 3. Tạp chí | 4. Báo\nChọn: ";
+        cin >> filterOption; clearBuffer();
+
+        int sortOption = 0;
+        cout << "Sắp xếp: 1. Không | 2. Theo Tên (A-Z) | 3. Theo Năm Xuất Bản | 4. Theo Giá\nChọn: ";
+        cin >> sortOption; clearBuffer();
+
+        vector<TaiLieu *> dsToPrint;
+        for (auto tl : ds) {
+            if (filterOption == 1 || (filterOption == 2 && tl->getLoaiTaiLieu() == 1) ||
+                (filterOption == 3 && tl->getLoaiTaiLieu() == 2) || (filterOption == 4 && tl->getLoaiTaiLieu() == 3)) {
+                dsToPrint.push_back(tl);
+            }
+        }
+
+        if (sortOption == 2) {
+            sort(dsToPrint.begin(), dsToPrint.end(), [this](TaiLieu *a, TaiLieu *b) {
+                return toLowerCase(a->getTenTaiLieu()) < toLowerCase(b->getTenTaiLieu());
+            });
+        } else if (sortOption == 3) {
+            sort(dsToPrint.begin(), dsToPrint.end(), [](TaiLieu *a, TaiLieu *b) {
+                return a->getNamXuatBan() < b->getNamXuatBan();
+            });
+        } else if (sortOption == 4) {
+            sort(dsToPrint.begin(), dsToPrint.end(), [](TaiLieu *a, TaiLieu *b) { return a->TinhTien() < b->TinhTien(); });
+        }
+
+        if (dsToPrint.empty()) {
+            cout << YELLOW << "Không có tài liệu nào phù hợp bộ lọc.\n" << RESET;
+            return;
+        }
+
+        cout << "\n" << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
+        InTieuDeBang();
+        double tongTien = 0;
+        for (const auto &tl : dsToPrint) {
+            tl->HienThiThongTin(cout);
+            tongTien += tl->TinhTien();
+        }
+        cout << string(155, '-') << endl;
+        cout << BOLD << RED << "TỔNG TIỀN TÀI LIỆU ĐANG HIỂN THỊ: " << fixed << setprecision(0) << tongTien << " VNĐ" << RESET << endl;
+
+        char exportChoice;
+        cout << "Bạn có muốn xuất danh sách này ra file CSV không? (Y/N): ";
+        cin >> exportChoice; clearBuffer();
+        if (exportChoice == 'Y' || exportChoice == 'y') {
+            xuatDanhSachCSV(dsToPrint);
+        }
+    }
+
+    void timKiemTaiLieu() {
+        string keyword;
+        cout << "Nhập mã, tên tài liệu, NXB hoặc tác giả cần tìm: ";
+        getline(cin, keyword);
+
+        string keywordToLower = toLowerCase(keyword);
+
+        bool found = false;
+        for (const auto &tl : ds) {
+            if (tl != nullptr) {
+                string maToLower = toLowerCase(tl->getMaTaiLieu());
+                string tenToLower = toLowerCase(tl->getTenTaiLieu());
+                string nxbToLower = toLowerCase(tl->getNhaXuatBan());
+                string chiTietToLower = toLowerCase(tl->getChiTietHienThi());
+
+                if (maToLower == keywordToLower || tenToLower.find(keywordToLower) != string::npos ||
+                    nxbToLower.find(keywordToLower) != string::npos || chiTietToLower.find(keywordToLower) != string::npos) {
+                    if (!found) {
+                        cout << "\n" << BOLD << GREEN << "KẾT QUẢ TÌM KIẾM" << RESET << "\n";
+                        InTieuDeBang();
+                        found = true;
+                    }
+                    tl->HienThiThongTin(cout);
+                }
+            }
+        }
+        if (!found) cout << RED << "Không tìm thấy tài liệu!" << RESET << "\n";
+        else cout << string(155, '-') << endl;
+    }
+
+    void muonTaiLieu(User *currentUser) {
+        if (currentUser->getRole() != "Reader") {
+            cout << RED << "Chỉ Reader mới có quyền mượn tài liệu!" << RESET << "\n";
+            return;
+        }
+
+        int activeBorrows = 0;
+        for (const auto &tb : ds) {
+            if (tb != nullptr && tb->getIsBorrowed() && tb->getBorrowerName() == currentUser->getUsername()) {
+                activeBorrows++;
+            }
+        }
+        if (activeBorrows >= 3) {
+            cout << RED << "Lỗi: Bạn đã đạt giới hạn mượn tối đa 3 tài liệu cùng lúc.\n" << RESET;
+            return;
+        }
+
+        string ma;
+        cout << "Nhập mã tài liệu muốn mượn: ";
+        cin >> ma; clearBuffer();
+        string maToLower = toLowerCase(ma);
+
+        for (auto &tl : ds) {
+            if (tl != nullptr && toLowerCase(tl->getMaTaiLieu()) == maToLower) {
+                if (tl->getIsBorrowed()) {
+                    cout << RED << "Tài liệu này đã được mượn bởi " << tl->getBorrowerName() << "!" << RESET << "\n";
+                } else {
+                    tl->setIsBorrowed(true);
+                    tl->setBorrowerName(currentUser->getUsername());
+                    LuuDuLieu();
+                    ghiLichSu(currentUser->getUsername(), "Mượn", tl->getMaTaiLieu(), tl->getTenTaiLieu());
+                    cout << GREEN << "Mượn tài liệu thành công!" << RESET << "\n";
+                }
+                return;
+            }
+        }
+        cout << RED << "Không tìm thấy mã tài liệu!" << RESET << "\n";
+    }
+
+    void traTaiLieu(User *currentUser) {
+        if (currentUser->getRole() != "Reader") {
+            cout << RED << "Chỉ Reader mới có quyền trả tài liệu!" << RESET << "\n";
+            return;
+        }
+        string ma;
+        cout << "Nhập mã tài liệu muốn trả: ";
+        cin >> ma; clearBuffer();
+        string maToLower = toLowerCase(ma);
+
+        for (auto &tl : ds) {
+            if (tl != nullptr && toLowerCase(tl->getMaTaiLieu()) == maToLower) {
+                if (!tl->getIsBorrowed()) {
+                    cout << YELLOW << "Tài liệu này đang rảnh (chưa ai mượn)." << RESET << "\n";
+                } else if (tl->getBorrowerName() != currentUser->getUsername()) {
+                    cout << RED << "Bạn không thể trả tài liệu do người khác (" << tl->getBorrowerName() << ") mượn!" << RESET << "\n";
+                } else {
+                    tl->setIsBorrowed(false);
+                    tl->setBorrowerName("");
+                    LuuDuLieu();
+                    ghiLichSu(currentUser->getUsername(), "Trả", tl->getMaTaiLieu(), tl->getTenTaiLieu());
+                    cout << GREEN << "Trả tài liệu thành công!" << RESET << "\n";
+                }
+                return;
+            }
+        }
+        cout << RED << "Không tìm thấy mã tài liệu!" << RESET << "\n";
+    }
+
+    void ghiLichSu(string username, string action, string maTL, string tenTL) {
+        time_t now = time(0);
+        struct tm tstruct;
+        char buf[80];
+        tstruct = *localtime(&now);
+        strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
+
+        ofstream ofs("history.txt", ios::app);
+        if (ofs) {
+            ofs << username << "|" << action << "|" << maTL << "|" << tenTL << "|" << buf << "\n";
+            ofs.close();
+        }
+    }
+
+    void xemLichSu(string username = "") {
+        ifstream ifs("history.txt");
+        if (!ifs.is_open()) {
+            cout << RED << "Chưa có lịch sử giao dịch nào.\n" << RESET;
+            return;
+        }
+
+        cout << "\n" << BOLD << GREEN << "=== LỊCH SỬ GIAO DỊCH ===" << RESET << "\n";
+        cout << left << setw(15) << "Người dùng" << setw(15) << "Hành động"
+             << setw(15) << "Mã TL" << setw(30) << "Tên TL" << "Thời gian" << "\n";
+        cout << string(100, '-') << "\n";
+
+        string line;
+        bool found = false;
+        while (getline(ifs, line)) {
+            stringstream ss(line);
+            string un, act, ma, ten, timeStr;
+            getline(ss, un, '|'); getline(ss, act, '|'); getline(ss, ma, '|'); getline(ss, ten, '|'); getline(ss, timeStr, '|');
+
+            if (username == "" || un == username) {
+                cout << left << setw(15) << un << setw(15) << act << setw(15) << ma << setw(30) << ten << timeStr << "\n";
+                found = true;
+            }
+        }
+        ifs.close();
+        if (!found) cout << YELLOW << "Không có giao dịch nào phù hợp.\n" << RESET;
+    }
+
+    void themTaiLieu(int loai) {
+        TaiLieu *tlMoi = nullptr;
+        if (loai == 1) {
+            cout << CYAN << "\nNhập thông tin Sách" << RESET << endl;
+            tlMoi = new Sach();
+        } else if (loai == 2) {
+            cout << CYAN << "\nNhập thông tin Tạp chí" << RESET << endl;
+            tlMoi = new TapChi();
+        } else if (loai == 3) {
+            cout << CYAN << "\nNhập thông tin Báo" << RESET << endl;
+            tlMoi = new Bao();
+        }
+        
         if (tlMoi != nullptr) {
-          tlMoi->Nhap(cin, library.getDS());
+            tlMoi->Nhap(cin, ds);
+            ds.push_back(tlMoi);
+            cout << GREEN << "Thêm tài liệu thành công!\n" << RESET;
+            LuuDuLieu();
+        }
+    }
+
+          // Tạo vỏ bọc mới cấp phát trên RAM dọn chỗ chuẩn bị chứa Sách
           // Đẩy nhồi dữ liệu vỏ bọc vừa rồi ghép nối vào toa tàu cấp cao (Danh
           // sách chung)
-          library.getDS().push_back(tlMoi);
-          cout << GREEN << "Thêm tài liệu thành công!\n" << RESET;
-          library.LuuDuLieu(library.getDS());
+    // Giải phóng thông tin ca gác cũ lúc bị ấn 0 thoát hệ thống
+    void xoaTaiLieu() {
+        if (ds.empty()) {
+            cout << RED << "Danh sách trống" << RESET << endl;
+            return;
         }
-      } else { // Handle Reader actions
-        switch (luaChon) {
-        case 1:
-          library.timKiemTaiLieu(library.getDS());
-          break;
-        case 2:
-          library.muonTaiLieu(library.getDS(), currentUser);
-          break;
-        case 3:
-          library.traTaiLieu(library.getDS(), currentUser);
-          break;
-        case 4:
-          if (library.getDS().empty()) {
-            cout << RED << "Danh sách trống!" << RESET << endl;
-          } else {
-            cout << "\n"
-                 << BOLD << GREEN << "DANH SÁCH TÀI LIỆU" << RESET << "\n";
-            InTieuDeBang();
-            for (const auto &tl : library.getDS()) {
-              tl->HienThiThongTin(cout);
+        string maCanXoa;
+        cout << "Nhập mã tài liệu cần xóa: ";
+        cin >> maCanXoa; clearBuffer();
+        string maToLower = toLowerCase(maCanXoa);
+
+        vector<int> viTriXoa;
+        for (int i = 0; i < (int)ds.size(); i++) {
+            if (toLowerCase(ds[i]->getMaTaiLieu()) == maToLower) {
+                viTriXoa.push_back(i);
+            }
+        }
+
+        if (viTriXoa.empty()) {
+            cout << RED << "Không tìm thấy mã tài liệu \"" << maCanXoa << "\"!" << RESET << endl;
+            return;
+        }
+
+        int index = -1;
+        cout << "\n" << BOLD << GREEN << "TÀI LIỆU CÓ MÃ \"" << maCanXoa << "\"" << RESET << "\n";
+        InTieuDeBang();
+
+        if (viTriXoa.size() == 1) {
+            index = viTriXoa[0];
+            ds[index]->HienThiThongTin(cout);
+            cout << endl;
+        } else {
+            for (int i = 0; i < (int)viTriXoa.size(); i++) {
+                cout << BOLD << YELLOW << "Lựa chọn số " << (i + 1) << ":" << RESET << endl;
+                ds[viTriXoa[i]]->HienThiThongTin(cout);
+                cout << endl;
             }
             cout << string(155, '-') << endl;
-          }
-          break;
-        case 0:
-          cout << "Đang đăng xuất...\n";
-          break;
-        default:
-          cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET;
-          clearBuffer();
+            int luaChonXoa;
+            bool hopLe = false;
+            while (!hopLe) {
+                cout << "Có nhiều tài liệu cùng mã. Nhập lựa chọn số (1-" << viTriXoa.size() << "): ";
+                if (!(cin >> luaChonXoa) || luaChonXoa < 1 || luaChonXoa > (int)viTriXoa.size()) {
+                    clearBuffer();
+                    cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!" << RESET << endl;
+                } else {
+                    clearBuffer();
+                    hopLe = true;
+                }
+            }
+            index = viTriXoa[luaChonXoa - 1];
+            cout << GREEN << "Tài liệu được chọn: " << RESET << endl;
+            InTieuDeBang();
+            ds[index]->HienThiThongTin(cout);
+            cout << endl;
         }
-      }
+        cout << string(155, '-') << endl;
 
-    } while (luaChon != 0);
+        if (ds[index]->getIsBorrowed()) {
+            cout << BOLD << RED << "LỖI: Trạng thái hiện tại là 'Đang mượn'." << endl;
+            cout << "Tài liệu đang được mượn bởi " << ds[index]->getBorrowerName() << ". Không thể xóa!" << RESET << endl;
+            return;
+        }
 
-    // Giải phóng thông tin ca gác cũ lúc bị ấn 0 thoát hệ thống
-    delete currentUser;
-    currentUser = nullptr;
-  }
+        char xacNhan;
+        cout << BOLD << RED << "Bạn có chắc chắn muốn xóa tài liệu này? (Y/N): " << RESET;
+        cin >> xacNhan; clearBuffer();
+        if (xacNhan == 'Y' || xacNhan == 'y') {
+            delete ds[index];
+            ds.erase(ds.begin() + index);
+            LuuDuLieu();
+            cout << GREEN << "Xóa tài liệu thành công!" << RESET << endl;
+        } else {
+            cout << YELLOW << "Hủy xóa tài liệu." << RESET << endl;
+        }
+    }
 
-  return 0;
+    void suaThongTinTaiLieu() {
+        if (ds.empty()) {
+            cout << RED << "Danh sách trống" << RESET << endl;
+            return;
+        }
+        string maCanSua;
+        cout << "Nhập mã tài liệu cần sửa: ";
+        cin >> maCanSua; clearBuffer();
+        string maToLower = toLowerCase(maCanSua);
+        bool modified = false;
+        for (auto &tl : ds) {
+            if (tl != nullptr && toLowerCase(tl->getMaTaiLieu()) == maToLower) {
+                tl->SuaThongTin();
+                modified = true;
+            }
+        }
+        if (modified) {
+            LuuDuLieu();
+            cout << GREEN << "Sửa thông tin thành công!" << RESET << endl;
+        } else {
+            cout << RED << "Không tìm thấy mã tài liệu!" << RESET << endl;
+        }
+    }
+};
+
+// ==========================================================
+// 4. CHƯƠNG TRÌNH CHÍNH (Vận hành trung tâm Console)
+// ==========================================================
+
+int main() {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    LibrarySystem lib;
+    lib.LoadDuLieu();
+
+    while (true) {
+        User *currentUser = AuthManager::login();
+        if (currentUser == nullptr) {
+            cout << "Đã hủy đăng nhập.\n";
+            break;
+        }
+
+        int luaChon;
+        do {
+            cout << "\n" << BOLD << GREEN << "=== HỆ THỐNG QUẢN LÝ THƯ VIỆN ===" << RESET << "\n";
+            cout << CYAN << "Xin chào, " << currentUser->getUsername() << " (" << currentUser->getRole() << ")\n" << RESET;
+
+            if (currentUser->getRole() == "Librarian") {
+                cout << "1. Thêm Sách\n2. Thêm Tạp Chí\n3. Thêm Báo\n4. Hiển thị danh sách và Tính tiền\n";
+                cout << "5. Thống kê chi tiết\n6. Xóa tài liệu\n7. Đổi mật khẩu\n8. Xem tất cả lịch sử\n9. Sửa thông tin tài liệu\n0. Thoát và Đăng xuất\n";
+            } else {
+                cout << "1. Tìm kiếm tài liệu\n2. Mượn tài liệu\n3. Trả tài liệu\n4. Xem danh sách tài liệu\n";
+                cout << "5. Đổi mật khẩu\n6. Xem lịch sử của tôi\n0. Thoát và Đăng xuất\n";
+            }
+            cout << "Nhập lựa chọn của bạn: ";
+            
+            if (!(cin >> luaChon)) {
+                cout << RED << "Lỗi: Lựa chọn không hợp lệ!\n" << RESET;
+                clearBuffer(); luaChon = -1; continue;
+            }
+
+            if (currentUser->getRole() == "Librarian") {
+                switch (luaChon) {
+                    case 1: lib.themTaiLieu(1); break;
+                    case 2: lib.themTaiLieu(2); break;
+                    case 3: lib.themTaiLieu(3); break;
+                    case 4: lib.xemVaLocDanhSach(); break;
+                    case 5: lib.thongKeChiTiet(); break;
+                    case 6: lib.xoaTaiLieu(); break;
+                    case 7: AuthManager::doiMatKhau(currentUser); break;
+                    case 8: lib.xemLichSu(); break;
+                    case 9: lib.suaThongTinTaiLieu(); break;
+                    case 0: cout << "Đang đăng xuất...\n"; break;
+                    default: cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET; clearBuffer();
+                }
+            } else {
+                switch (luaChon) {
+                    case 1: lib.timKiemTaiLieu(); break;
+                    case 2: lib.muonTaiLieu(currentUser); break;
+                    case 3: lib.traTaiLieu(currentUser); break;
+                    case 4: lib.xemVaLocDanhSach(); break;
+                    case 5: AuthManager::doiMatKhau(currentUser); break;
+                    case 6: lib.xemLichSu(currentUser->getUsername()); break;
+                    case 0: cout << "Đang đăng xuất...\n"; break;
+                    default: cout << RED << "Lựa chọn không hợp lệ. Vui lòng nhập lại!\n" << RESET; clearBuffer();
+                }
+            }
+        } while (luaChon != 0);
+
+        delete currentUser;
+    }
+
+    return 0;
 }
